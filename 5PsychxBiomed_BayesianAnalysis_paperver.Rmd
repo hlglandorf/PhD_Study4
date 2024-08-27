@@ -1,0 +1,1232 @@
+---
+title: "PsychxBiomed_BayesianAnalysis"
+author: "H.L. Glandorf"
+date: "2024-05-24"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Psych x Biomed Analysis: Bayesian Approach (Paper vers.; Exploratory analsis Part 3a)
+This code file carries out the multilevel mediation analysis based on participants who completed at least two waves with Bayesian estimation and priors. The models here are using biomarkers as mediators simultaneously. 
+
+These are the objectives:
+- data preparation (e.g., scale the data, create long format, clean data)
+- data imputation with multivariate imputation by chained equations (MICE)
+- SD calculation for prior adjustment 
+- multilevel mediation analyses with Bayesian estimator and priors for biomarkers as simultaneous mediators 
+-- no information priors
+-- priors based on previous research
+
+# Load libraries
+```{r libraries}
+library(blavaan)
+library(readxl)
+library(broom)
+library(tidyverse)
+library(ggplot2)
+library(semTools)
+library(mice)
+```
+
+# Load data
+```{r data loading}
+dat <- read_csv("redframe.csv")
+```
+
+# Scaling
+```{r scaling and outlier screening}
+##add in time difference between time of saliva sample and time eaten
+dat <- dat %>% mutate(t1timediff = t1time-t1timeeat,
+               t2timediff = t2time-t2timeeat,
+               t3timediff = t3time-t3timeeat)
+
+##calculating z-scores
+datz <- dat %>% 
+  mutate(t1TB_z = scale(t1TB), 
+         t1EXH_z = scale(t1EXH),
+         t1DEV_z = scale(t1DEV),
+         t1RSA_z = scale(t1RSA),
+         t1PS_z = scale(t1PS),
+         t1DS_z = scale(t1DS),
+         t1PSQI_z = scale(t1PSQI),
+         t1ISI_z = scale(t1ISI),
+         t1iga_z = scale(t1iga_flow),
+         t1testo_z = scale(t1test_conc),
+         t1dheas_z = scale(t1dheas_flow),
+         t1cort_z = scale(t1cort_conc),
+         t1crp_z = scale(t1crp_conc),
+         t1timediff_z = scale(t1timediff),
+         t2TB_z = scale(t2TB), 
+         t2EXH_z = scale(t2EXH),
+         t2DEV_z = scale(t2DEV),
+         t2RSA_z = scale(t2RSA),
+         t2PS_z = scale(t2PS),
+         t2DS_z = scale(t2DS),
+         t2PSQI_z = scale(t2PSQI),
+         t2ISI_z = scale(t2ISI),
+         t2iga_z = scale(t2iga_flow),
+         t2testo_z = scale(t2test_conc),
+         t2dheas_z = scale(t2dheas_flow),
+         t2cort_z = scale(t2cort_conc),
+         t2crp_z = scale(t2crp_conc),
+         t2timediff_z = scale(t2timediff),
+         t3TB_z = scale(t3TB), 
+         t3EXH_z = scale(t3EXH),
+         t3DEV_z = scale(t3DEV),
+         t3RSA_z = scale(t3RSA),
+         t3PS_z = scale(t3PS),
+         t3DS_z = scale(t3DS),
+         t3PSQI_z = scale(t3PSQI),
+         t3ISI_z = scale(t3ISI),
+         t3iga_z = scale(t3iga_flow),
+         t3testo_z = scale(t3test_conc),
+         t3dheas_z = scale(t3dheas_flow),
+         t3cort_z = scale(t3cort_conc),
+         t3crp_z = scale(t3crp_conc),
+         t3timediff_z = scale(t3timediff))
+
+##replacing extremes with NAs
+#wave 1
+datz$t1TB <- replace(datz$t1TB, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH <- replace(datz$t1EXH, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV <- replace(datz$t1DEV, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA <- replace(datz$t1RSA, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS <- replace(datz$t1PS, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS <- replace(datz$t1DS, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI <- replace(datz$t1PSQI, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI <- replace(datz$t1ISI, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_flow <- replace(datz$t1iga_flow, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1test_conc <- replace(datz$t1test_conc, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_flow <- replace(datz$t1dheas_flow, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_conc <- replace(datz$t1cort_conc, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_conc <- replace(datz$t1crp_conc, abs(datz$t1crp_z) > 3.29, NA)
+
+##wave1 for z-values
+datz$t1TB_z <- replace(datz$t1TB_z, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH_z <- replace(datz$t1EXH_z, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV_z <- replace(datz$t1DEV_z, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA_z <- replace(datz$t1RSA_z, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS_z <- replace(datz$t1PS_z, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS_z <- replace(datz$t1DS_z, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI_z <- replace(datz$t1PSQI_z, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI_z <- replace(datz$t1ISI_z, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_z <- replace(datz$t1iga_z, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1testo_z <- replace(datz$t1testo_z, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_z <- replace(datz$t1dheas_z, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_z <- replace(datz$t1cort_z, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_z <- replace(datz$t1crp_z, abs(datz$t1crp_z) > 3.29, NA)
+
+#wave 2
+datz$t2TB <- replace(datz$t2TB, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH <- replace(datz$t2EXH, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV <- replace(datz$t2DEV, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA <- replace(datz$t2RSA, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS <- replace(datz$t2PS, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS <- replace(datz$t2DS, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI <- replace(datz$t2PSQI, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI <- replace(datz$t2ISI, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_flow <- replace(datz$t2iga_flow, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2test_conc <- replace(datz$t2test_conc, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_flow <- replace(datz$t2dheas_flow, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_conc <- replace(datz$t2cort_conc, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_conc <- replace(datz$t2crp_conc, abs(datz$t2crp_z) > 3.29, NA)
+
+##wave2 for z-values
+datz$t2TB_z <- replace(datz$t2TB_z, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH_z <- replace(datz$t2EXH_z, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV_z <- replace(datz$t2DEV_z, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA_z <- replace(datz$t2RSA_z, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS_z <- replace(datz$t2PS_z, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS_z <- replace(datz$t2DS_z, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI_z <- replace(datz$t2PSQI_z, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI_z <- replace(datz$t2ISI_z, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_z <- replace(datz$t2iga_z, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2testo_z <- replace(datz$t2testo_z, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_z <- replace(datz$t2dheas_z, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_z <- replace(datz$t2cort_z, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_z <- replace(datz$t2crp_z, abs(datz$t2crp_z) > 3.29, NA)
+
+#wave 3
+datz$t3TB <- replace(datz$t3TB, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH <- replace(datz$t3EXH, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV <- replace(datz$t3DEV, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA <- replace(datz$t3RSA, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS <- replace(datz$t3PS, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS <- replace(datz$t3DS, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI <- replace(datz$t3PSQI, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI <- replace(datz$t3ISI, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_flow <- replace(datz$t3iga_flow, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3test_conc <- replace(datz$t3test_conc, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_flow <- replace(datz$t3dheas_flow, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_conc <- replace(datz$t3cort_conc, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_conc <- replace(datz$t3crp_conc, abs(datz$t3crp_z) > 3.29, NA)
+
+##wave3 for z-values
+datz$t3TB_z <- replace(datz$t3TB_z, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH_z <- replace(datz$t3EXH_z, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV_z <- replace(datz$t3DEV_z, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA_z <- replace(datz$t3RSA_z, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS_z <- replace(datz$t3PS_z, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS_z <- replace(datz$t3DS_z, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI_z <- replace(datz$t3PSQI_z, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI_z <- replace(datz$t3ISI_z, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_z <- replace(datz$t3iga_z, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3testo_z <- replace(datz$t3testo_z, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_z <- replace(datz$t3dheas_z, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_z <- replace(datz$t3cort_z, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_z <- replace(datz$t3crp_z, abs(datz$t3crp_z) > 3.29, NA)
+```
+
+# Creating a long format
+```{r reformating}
+#total burnout
+datl_tb <- datz %>% 
+  dplyr::select(sample_id, t1TB, t2TB, t3TB) %>%
+  pivot_longer(cols = c(t1TB, t2TB, t3TB),
+                               names_to = "timepoint",
+                               values_to = "TB") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB" ~"t1", 
+                         timepoint =="t2TB" ~ "t2",
+                         timepoint =="t3TB" ~ "t3"))
+datl_tbz <- datz %>% 
+  dplyr::select(sample_id, t1TB_z, t2TB_z, t3TB_z) %>%
+  pivot_longer(cols = c(t1TB_z, t2TB_z, t3TB_z),
+                               names_to = "timepoint",
+                               values_to = "TBz") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB_z" ~"t1", 
+                         timepoint =="t2TB_z" ~ "t2",
+                         timepoint =="t3TB_z" ~ "t3"))
+#exhaustion
+datl_exh <- datz %>% 
+  dplyr::select(sample_id, t1EXH, t2EXH, t3EXH) %>%
+  pivot_longer(cols = c(t1EXH, t2EXH, t3EXH),
+                               names_to = "timepoint",
+                               values_to = "EXH") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH" ~"t1", 
+                         timepoint =="t2EXH" ~ "t2",
+                         timepoint =="t3EXH" ~ "t3"))
+datl_exhz <- datz %>% 
+  dplyr::select(sample_id, t1EXH_z, t2EXH_z, t3EXH_z) %>%
+  pivot_longer(cols = c(t1EXH_z, t2EXH_z, t3EXH_z),
+                               names_to = "timepoint",
+                               values_to = "EXHz") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH_z" ~"t1", 
+                         timepoint =="t2EXH_z" ~ "t2",
+                         timepoint =="t3EXH_z" ~ "t3"))
+#devaluation
+datl_dev <- datz %>% 
+  dplyr::select(sample_id, t1DEV, t2DEV, t3DEV) %>%
+  pivot_longer(cols = c(t1DEV, t2DEV, t3DEV),
+                               names_to = "timepoint",
+                               values_to = "DEV") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV" ~"t1", 
+                         timepoint =="t2DEV" ~ "t2",
+                         timepoint =="t3DEV" ~ "t3"))
+datl_devz <- datz %>% 
+  dplyr::select(sample_id, t1DEV_z, t2DEV_z, t3DEV_z) %>%
+  pivot_longer(cols = c(t1DEV_z, t2DEV_z, t3DEV_z),
+                               names_to = "timepoint",
+                               values_to = "DEVz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV_z" ~"t1", 
+                         timepoint =="t2DEV_z" ~ "t2",
+                         timepoint =="t3DEV_z" ~ "t3"))
+#rsa
+datl_rsa <- datz %>% 
+  dplyr::select(sample_id, t1RSA, t2RSA, t3RSA) %>%
+  pivot_longer(cols = c(t1RSA, t2RSA, t3RSA),
+                               names_to = "timepoint",
+                               values_to = "RSA") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA" ~"t1", 
+                         timepoint =="t2RSA" ~ "t2",
+                         timepoint =="t3RSA" ~ "t3"))
+datl_rsaz <- datz %>% 
+  dplyr::select(sample_id, t1RSA_z, t2RSA_z, t3RSA_z) %>%
+  pivot_longer(cols = c(t1RSA_z, t2RSA_z, t3RSA_z),
+                               names_to = "timepoint",
+                               values_to = "RSAz") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA_z" ~"t1", 
+                         timepoint =="t2RSA_z" ~ "t2",
+                         timepoint =="t3RSA_z" ~ "t3"))
+#DS
+datl_ds <- datz %>% 
+  dplyr::select(sample_id, t1DS, t2DS, t3DS) %>%
+  pivot_longer(cols = c(t1DS, t2DS, t3DS),
+                               names_to = "timepoint",
+                               values_to = "DS") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS" ~"t1", 
+                         timepoint =="t2DS" ~ "t2",
+                         timepoint =="t3DS" ~ "t3"))
+datl_dsz <- datz %>% 
+  dplyr::select(sample_id, t1DS_z, t2DS_z, t3DS_z) %>%
+  pivot_longer(cols = c(t1DS_z, t2DS_z, t3DS_z),
+                               names_to = "timepoint",
+                               values_to = "DSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS_z" ~"t1", 
+                         timepoint =="t2DS_z" ~ "t2",
+                         timepoint =="t3DS_z" ~ "t3"))
+#PS
+datl_ps <- datz %>% 
+  dplyr::select(sample_id, t1PS, t2PS, t3PS) %>%
+  pivot_longer(cols = c(t1PS, t2PS, t3PS),
+                               names_to = "timepoint",
+                               values_to = "PS") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS" ~"t1", 
+                         timepoint =="t2PS" ~ "t2",
+                         timepoint =="t3PS" ~ "t3"))
+datl_psz <- datz %>% 
+  dplyr::select(sample_id, t1PS_z, t2PS_z, t3PS_z) %>%
+  pivot_longer(cols = c(t1PS_z, t2PS_z, t3PS_z),
+                               names_to = "timepoint",
+                               values_to = "PSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS_z" ~"t1", 
+                         timepoint =="t2PS_z" ~ "t2",
+                         timepoint =="t3PS_z" ~ "t3"))
+#PSQI
+datl_psqi <- datz %>% 
+  dplyr::select(sample_id, t1PSQI, t2PSQI, t3PSQI) %>%
+  pivot_longer(cols = c(t1PSQI, t2PSQI, t3PSQI),
+                               names_to = "timepoint",
+                               values_to = "PSQI") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI" ~"t1", 
+                         timepoint =="t2PSQI" ~ "t2",
+                         timepoint =="t3PSQI" ~ "t3"))
+datl_psqiz <- datz %>% 
+  dplyr::select(sample_id, t1PSQI_z, t2PSQI_z, t3PSQI_z) %>%
+  pivot_longer(cols = c(t1PSQI_z, t2PSQI_z, t3PSQI_z),
+                               names_to = "timepoint",
+                               values_to = "PSQIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI_z" ~"t1", 
+                         timepoint =="t2PSQI_z" ~ "t2",
+                         timepoint =="t3PSQI_z" ~ "t3"))
+#ISI
+datl_isi <- datz %>% 
+  dplyr::select(sample_id, t1ISI, t2ISI, t3ISI) %>%
+  pivot_longer(cols = c(t1ISI, t2ISI, t3ISI),
+                               names_to = "timepoint",
+                               values_to = "ISI") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI" ~"t1", 
+                         timepoint =="t2ISI" ~ "t2",
+                         timepoint =="t3ISI" ~ "t3"))
+datl_isiz <- datz %>% 
+  dplyr::select(sample_id, t1ISI_z, t2ISI_z, t3ISI_z) %>%
+  pivot_longer(cols = c(t1ISI_z, t2ISI_z, t3ISI_z),
+                               names_to = "timepoint",
+                               values_to = "ISIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI_z" ~"t1", 
+                         timepoint =="t2ISI_z" ~ "t2",
+                         timepoint =="t3ISI_z" ~ "t3"))
+#iga flow
+datl_igaflow <- datz %>% 
+  dplyr::select(sample_id, t1iga_flow, t2iga_flow, t3iga_flow) %>%
+  pivot_longer(cols = c(t1iga_flow, t2iga_flow, t3iga_flow),
+                               names_to = "timepoint",
+                               values_to = "iga_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_flow" ~"t1", 
+                         timepoint =="t2iga_flow" ~ "t2",
+                         timepoint =="t3iga_flow" ~ "t3"))
+datl_igafz <- datz %>% 
+  dplyr::select(sample_id, t1iga_z, t2iga_z, t3iga_z) %>%
+  pivot_longer(cols = c(t1iga_z, t2iga_z, t3iga_z),
+                               names_to = "timepoint",
+                               values_to = "iga_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_z" ~"t1", 
+                         timepoint =="t2iga_z" ~ "t2",
+                         timepoint =="t3iga_z" ~ "t3"))
+#testosterone conc
+datl_testc <- datz %>% 
+  dplyr::select(sample_id, t1test_conc, t2test_conc, t3test_conc) %>%
+  pivot_longer(cols = c(t1test_conc, t2test_conc, t3test_conc),
+                               names_to = "timepoint",
+                               values_to = "test_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1test_conc" ~"t1", 
+                         timepoint =="t2test_conc" ~ "t2",
+                         timepoint =="t3test_conc" ~ "t3"))
+datl_testcz <- datz %>% 
+  dplyr::select(sample_id, t1testo_z, t2testo_z, t3testo_z) %>%
+  pivot_longer(cols = c(t1testo_z, t2testo_z, t3testo_z),
+                               names_to = "timepoint",
+                               values_to = "test_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1testo_z" ~"t1", 
+                         timepoint =="t2testo_z" ~ "t2",
+                         timepoint =="t3testo_z" ~ "t3"))
+#dheas flow
+datl_dheasf <- datz %>% 
+  dplyr::select(sample_id, t1dheas_flow, t2dheas_flow, t3dheas_flow) %>%
+  pivot_longer(cols = c(t1dheas_flow, t2dheas_flow, t3dheas_flow),
+                               names_to = "timepoint",
+                               values_to = "dheas_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_flow" ~"t1", 
+                         timepoint =="t2dheas_flow" ~ "t2",
+                         timepoint =="t3dheas_flow" ~ "t3"))
+datl_dheasfz <- datz %>% 
+  dplyr::select(sample_id, t1dheas_z, t2dheas_z, t3dheas_z) %>%
+  pivot_longer(cols = c(t1dheas_z, t2dheas_z, t3dheas_z),
+                               names_to = "timepoint",
+                               values_to = "dheas_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_z" ~"t1", 
+                         timepoint =="t2dheas_z" ~ "t2",
+                         timepoint =="t3dheas_z" ~ "t3"))
+#cort conc
+datl_cortc <- datz %>% 
+  dplyr::select(sample_id, t1cort_conc, t2cort_conc, t3cort_conc) %>%
+  pivot_longer(cols = c(t1cort_conc, t2cort_conc, t3cort_conc),
+                               names_to = "timepoint",
+                               values_to = "cort_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_conc" ~"t1", 
+                         timepoint =="t2cort_conc" ~ "t2",
+                         timepoint =="t3cort_conc" ~ "t3"))
+datl_cortcz <- datz %>% 
+  dplyr::select(sample_id, t1cort_z, t2cort_z, t3cort_z) %>%
+  pivot_longer(cols = c(t1cort_z, t2cort_z, t3cort_z),
+                               names_to = "timepoint",
+                               values_to = "cort_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_z" ~"t1", 
+                         timepoint =="t2cort_z" ~ "t2",
+                         timepoint =="t3cort_z" ~ "t3"))
+#crp conc
+datl_crpc <- datz %>% 
+  dplyr::select(sample_id, t1crp_conc, t2crp_conc, t3crp_conc) %>%
+  pivot_longer(cols = c(t1crp_conc, t2crp_conc, t3crp_conc),
+                               names_to = "timepoint",
+                               values_to = "crp_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_conc" ~"t1", 
+                         timepoint =="t2crp_conc" ~ "t2",
+                         timepoint =="t3crp_conc" ~ "t3"))
+datl_crpcz <- datz %>% 
+  dplyr::select(sample_id, t1crp_z, t2crp_z, t3crp_z) %>%
+  pivot_longer(cols = c(t1crp_z, t2crp_z, t3crp_z),
+                               names_to = "timepoint",
+                               values_to = "crp_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_z" ~"t1", 
+                         timepoint =="t2crp_z" ~ "t2",
+                         timepoint =="t3crp_z" ~ "t3"))
+#time difference
+datl_timed <- datz %>% 
+  dplyr::select(sample_id, t1timediff, t2timediff, t3timediff) %>%
+  pivot_longer(cols = c(t1timediff, t2timediff, t3timediff),
+                               names_to = "timepoint",
+                               values_to = "timediff") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff" ~"t1", 
+                         timepoint =="t2timediff" ~ "t2",
+                         timepoint =="t3timediff" ~ "t3"))
+datl_timedz <- datz %>% 
+  dplyr::select(sample_id, t1timediff_z, t2timediff_z, t3timediff_z) %>%
+  pivot_longer(cols = c(t1timediff_z, t2timediff_z, t3timediff_z),
+                               names_to = "timepoint",
+                               values_to = "timediffz") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff_z" ~"t1", 
+                         timepoint =="t2timediff_z" ~ "t2",
+                         timepoint =="t3timediff_z" ~ "t3"))
+
+##notes
+datl_notes <- datz %>% 
+  dplyr::select(sample_id, t1notes, t2notes, t3notes) %>%
+  pivot_longer(cols = c(t1notes, t2notes, t3notes),
+                               names_to = "timepoint",
+                               values_to = "notes") %>%
+  mutate(timepoint = case_when(timepoint== "t1notes" ~"t1", 
+                         timepoint =="t2notes" ~ "t2",
+                         timepoint =="t3notes" ~ "t3"))
+
+##join all files together
+datl <- inner_join(datl_tb, datl_tbz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exh, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exhz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dev, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_devz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsa, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsaz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ds, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dsz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ps, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psqi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_psqiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igaflow, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igafz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testc, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testcz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dheasf, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_dheasfz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timed, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timedz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_notes, by = c("sample_id", "timepoint"))
+```
+
+# Data filtering prior to modelling
+```{r filter}
+##remove row 182 for eating
+datlx <- datl[-182,]
+##filtering data by timepoint
+datlx <- datlx %>% filter(timediff > 1.5)
+##remove participant 91 for injury
+datlx <- datlx %>% filter(sample_id != 91)
+```
+
+# Data imputation with MICE
+The Bayesian estimator in lavaan does not have a way to estimate missing values, so missing values need to be imputed prior to analysis. Here, the mice package is used for imputation. 
+```{r data imputation}
+md.pattern(datlx)
+datlxsub <- datlx %>% dplyr::select(sample_id, TBz, EXHz, DEVz, RSAz, 
+                                    iga_flowz, test_concz, dheas_flowz, cort_concz, crp_concz, 
+                                    PS, DS, ISI, PSQI, PSz, DSz, ISIz, PSQIz) %>%
+  mutate(TBz = as.vector(TBz),
+         EXHz = as.vector(EXHz),
+         DEVz = as.vector(DEVz),
+         RSAz = as.vector(RSAz),
+         iga_flowz = as.vector(iga_flowz),
+         test_concz = as.vector(test_concz),
+         dheas_flowz = as.vector(dheas_flowz),
+         cort_concz = as.vector(cort_concz),
+         crp_concz = as.vector(crp_concz),
+         PSz = as.vector(PSz),
+         DSz = as.vector(DSz),
+         ISIz = as.vector(ISIz),
+         PSQIz = as.vector(PSQIz))
+datlxtp <- datlx %>% select(sample_id, timepoint, EXHz)
+
+datlximp <- mice(datlxsub, method = "pmm", seed = 500)
+summary(datlximp)
+datlxcomb <- complete(datlximp)
+
+datlx2 <- inner_join(datlxtp, datlxcomb) %>%
+  mutate(EXHz = as.vector(EXHz))
+```
+
+# Determine SD for adjustment of priors to the data
+Priors are based on previous research (and thus standardised betas), they need to be adjusted to the data in this study. To do so, SDs of the variables need to be calculated. 
+```{r sds for prior adjustment}
+datlx2 %>% summarise(mean(iga_flowz), mean(test_concz), mean(dheas_flowz), mean(cort_concz), mean(crp_concz),
+                    mean(TBz), mean(EXHz), mean(DEVz), mean(RSAz), 
+                    mean(PS), mean(DS), mean(ISI), mean(PSQI),
+                    mean(PSz), mean(DSz), mean(ISIz), mean(PSQIz),
+                    sd(iga_flowz), sd(test_concz), sd(dheas_flowz), sd(cort_concz), sd(crp_concz),
+                    sd(TBz), sd(EXHz), sd(DEVz), sd(RSAz), 
+                    sd(PS), sd(DS), sd(ISI), sd(PSQI),
+                    sd(PSz), sd(DSz), sd(ISIz), sd(PSQIz))
+```
+
+# MLMs with Bayesian approach and all biomarkers (testosterone, DHEA-S, IgA) in one model
+The models here align with the first models in the ML analysis where testosterone, DHEA-S, and IgA are used as simultaneous mediator. 
+Two priors are being used. First, a model with no information priors (beta = 0, SD = 10) was fitted, then a model with priors based on previous research. 
+```{r}
+## PHYSICAL SYMPTOMS 
+##TB x Biomarkers x PS
+#WITHOUT PRIORS (/with no information priors)
+tb_bio_ps2 <- '
+level: within
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+PS ~  f*TBz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+PS ~ c*TBz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_ps2 <- bsem(model = tb_bio_ps2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_ps2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+tb_bio_ps1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.35,0.1)")*TBz+d1*TBz
+test_concz ~ prior("normal(-0.27,0.1)")*TBz+d2*TBz
+dheas_flowz ~ prior("normal(-0.27,0.1)")*TBz+d3*TBz
+PS ~ prior("normal(2.74,5)")*TBz + f*TBz+ prior("normal(0,10)")*iga_flowz+e1*iga_flowz + prior("normal(0,10)")*test_concz+ e2*test_concz + prior("normal(0,10)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*TBz +a1*TBz
+test_concz ~ prior("normal(0,1)")*TBz+a2*TBz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*TBz+a3*TBz
+PS ~ prior("normal(5.48,5)")*TBz +c*TBz + prior("normal(0,10)")*iga_flowz+b1*iga_flowz + prior("normal(0,10)")*test_concz+ b2*test_concz + prior("normal(0.77,10)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_ps1 <- bsem(model = tb_bio_ps1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_ps1, fit.measures = TRUE, standardized=TRUE)
+
+##EXH x Biomarkers x PS
+#WITHOUT PRIORS (/with no information priors)
+exh_bio_ps2 <- '
+level: within
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+PS ~  f*EXHz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+PS ~ c*EXHz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_ps2 <- bsem(model = exh_bio_ps2, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitexh_bio_ps2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+exh_bio_ps1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.26,0.1)")*EXHz+d1*EXHz
+test_concz ~ prior("normal(-0.27,0.1)")*EXHz+d2*EXHz
+dheas_flowz ~ prior("normal(-0.04,0.1)")*EXHz+d3*EXHz
+PS ~ prior("normal(2.66,5)")*EXHz + f*EXHz+ prior("normal(0,10)")*iga_flowz+e1*iga_flowz + prior("normal(0,10)")*test_concz+ e2*test_concz + prior("normal(0,10)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*EXHz +a1*EXHz
+test_concz ~ prior("normal(0,1)")*EXHz+a2*EXHz
+dheas_flowz ~ prior("normal(0,1)")*EXHz+a3*EXHz
+PS ~ prior("normal(5.32,5)")*EXHz +c*EXHz + prior("normal(0,10)")*iga_flowz+b1*iga_flowz + prior("normal(0,10)")*test_concz+ b2*test_concz + prior("normal(0.77,10)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_ps1 <- bsem(model = exh_bio_ps1, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitexh_bio_ps1, fit.measures = TRUE, standardized=TRUE)
+
+##DEV x Biomarkers x PS
+#WITHOUT PRIORS (/with no information priors)
+dev_bio_ps2 <- '
+level: within
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+PS ~  f*DEVz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+PS ~ c*DEVz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_ps2 <- bsem(model = dev_bio_ps2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_ps2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+dev_bio_ps1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.64,0.1)")*DEVz+d1*DEVz
+test_concz ~ prior("normal(-0.1,0.1)")*DEVz+d2*DEVz
+dheas_flowz ~ prior("normal(-0.28,0.1)")*DEVz+d3*DEVz
+PS ~ prior("normal(1.41,5)")*DEVz + f*DEVz+ prior("normal(0,5)")*iga_flowz+e1*iga_flowz + prior("normal(0,5)")*test_concz+ e2*test_concz + prior("normal(0,5)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.01,0.2)")*DEVz +a1*DEVz
+test_concz ~ prior("normal(0,1)")*DEVz+a2*DEVz
+dheas_flowz ~ prior("normal(0,1)")*DEVz+a3*DEVz
+PS ~ prior("normal(4.23,5)")*DEVz +c*DEVz + prior("normal(0,5)")*iga_flowz+b1*iga_flowz + prior("normal(0,5)")*test_concz+ b2*test_concz + prior("normal(0.77,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_ps1 <- bsem(model = dev_bio_ps1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_ps1, fit.measures = TRUE, standardized=TRUE)
+
+##RSA x Biomarkers x PS
+#WITHOUT PRIORS (/with no information priors)
+rsa_bio_ps2 <- '
+level: within
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+PS ~  f*RSAz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+PS ~ c*RSAz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_ps2 <- bsem(model = rsa_bio_ps2, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitrsa_bio_ps2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+rsa_bio_ps1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.1,0.2)")*RSAz+d1*RSAz
+test_concz ~ prior("normal(-0.19,0.1)")*RSAz+d2*RSAz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*RSAz+d3*RSAz
+PS ~ prior("normal(0.71,5)")*RSAz + f*RSAz+ prior("normal(0,5)")*iga_flowz+e1*iga_flowz + prior("normal(0,5)")*test_concz+ e2*test_concz + prior("normal(0,5)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.1,0.5)")*RSAz +a1*RSAz
+test_concz ~ prior("normal(-0.1,0.5)")*RSAz+a2*RSAz
+dheas_flowz ~ prior("normal(0,1)")*RSAz+a3*RSAz
+PS ~ prior("normal(4.28,5)")*RSAz +c*RSAz + prior("normal(0,5)")*iga_flowz+b1*iga_flowz + prior("normal(0,5)")*test_concz+ b2*test_concz + prior("normal(0.77,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_ps1 <- bsem(model = rsa_bio_ps1, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitrsa_bio_ps1, fit.measures = TRUE, standardized=TRUE)
+
+## DEPRESSIVE SYMPTOMS
+##TB x Biomarkers x DS
+#WITHOUT PRIORS (/with no information priors)
+tb_bio_ds2 <- '
+level: within
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+DS ~  f*TBz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+DS ~ c*TBz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_ds2 <- bsem(model = tb_bio_ds2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_ds2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+tb_bio_ds1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.35,0.1)")*TBz+d1*TBz
+test_concz ~ prior("normal(-0.27,0.1)")*TBz+d2*TBz
+dheas_flowz ~ prior("normal(-0.27,0.1)")*TBz+d3*TBz
+DS ~ prior("normal(0.7,1)")*TBz + f*TBz+ prior("normal(0,5)")*iga_flowz+e1*iga_flowz + prior("normal(0,5)")*test_concz+ e2*test_concz + prior("normal(0,5)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*TBz +a1*TBz
+test_concz ~ prior("normal(0,1)")*TBz+a2*TBz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*TBz+a3*TBz
+DS ~ prior("normal(2.79,5)")*TBz +c*TBz + prior("normal(-0.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.77,5)")*test_concz+ b2*test_concz + prior("normal(-0.78,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_ds1 <- bsem(model = tb_bio_ds1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_ds1, fit.measures = TRUE, standardized=TRUE)
+
+##EXH x Biomarkers x DS
+#WITHOUT PRIORS (/with no information priors)
+exh_bio_ds2 <- '
+level: within
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+DS ~  f*EXHz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+DS ~ c*EXHz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_ds2 <- bsem(model = exh_bio_ds2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitexh_bio_ds2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+exh_bio_ds1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.26,0.1)")*EXHz+d1*EXHz
+test_concz ~ prior("normal(-0.27,0.1)")*EXHz+d2*EXHz
+dheas_flowz ~ prior("normal(-0.04,0.1)")*EXHz+d3*EXHz
+DS ~ prior("normal(1.16,1)")*EXHz + f*EXHz+ prior("normal(0,5)")*iga_flowz+e1*iga_flowz + prior("normal(0,5)")*test_concz+ e2*test_concz + prior("normal(0,5)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*EXHz +a1*EXHz
+test_concz ~ prior("normal(0,1)")*EXHz+a2*EXHz
+dheas_flowz ~ prior("normal(0,1)")*EXHz+a3*EXHz
+DS ~ prior("normal(1.36,5)")*EXHz +c*EXHz + prior("normal(-0.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.77,5)")*test_concz+ b2*test_concz + prior("normal(-0.78,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_ds1 <- bsem(model = exh_bio_ds1, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitexh_bio_ds1, fit.measures = TRUE, standardized=TRUE)
+
+##DEV x Biomarkers x DS
+#WITHOUT PRIORS (/with no information priors)
+dev_bio_ds2 <- '
+level: within
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+DS ~  f*DEVz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+DS ~ c*DEVz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_ds2 <- bsem(model = dev_bio_ds2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_ds2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+dev_bio_ds1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.64,0.1)")*DEVz+d1*DEVz
+test_concz ~ prior("normal(-0.1,0.1)")*DEVz+d2*DEVz
+dheas_flowz ~ prior("normal(-0.28,0.1)")*DEVz+d3*DEVz
+DS ~ prior("normal(0.07,1)")*DEVz + f*DEVz+ prior("normal(0,5)")*iga_flowz+e1*iga_flowz + prior("normal(0,5)")*test_concz+ e2*test_concz + prior("normal(0,5)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.01,0.2)")*DEVz +a1*DEVz
+test_concz ~ prior("normal(0,1)")*DEVz+a2*DEVz
+dheas_flowz ~ prior("normal(0,1)")*DEVz+a3*DEVz
+DS ~ prior("normal(0.07,5)")*DEVz +c*DEVz + prior("normal(0.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.77,5)")*test_concz+ b2*test_concz + prior("normal(0.78,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_ds1 <- bsem(model = dev_bio_ds1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_ds1, fit.measures = TRUE, standardized=TRUE)
+
+##RSA x Biomarkers x DS
+#WITHOUT PRIORS (/with no information priors)
+rsa_bio_ds2 <- '
+level: within
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+DS ~  f*RSAz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+DS ~ c*RSAz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_ds2 <- bsem(model = rsa_bio_ds2, data = datlx2, cluster = "sample_id", sample = 7500, seed = 1)
+summary(bfitrsa_bio_ds2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+rsa_bio_ds1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.1,0.2)")*RSAz+d1*RSAz
+test_concz ~ prior("normal(-0.19,0.1)")*RSAz+d2*RSAz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*RSAz+d3*RSAz
+DS ~ prior("normal(0.36,1)")*RSAz + f*RSAz+ prior("normal(-0.79,1)")*iga_flowz+e1*iga_flowz + prior("normal(-0.77,1)")*test_concz+ e2*test_concz + prior("normal(-0.78,1)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(0.1,0.5)")*RSAz +a1*RSAz
+test_concz ~ prior("normal(0.1,0.5)")*RSAz+a2*RSAz
+dheas_flowz ~ prior("normal(0,1)")*RSAz+a3*RSAz
+DS ~ prior("normal(2.91,5)")*RSAz +c*RSAz + prior("normal(-0.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.77,5)")*test_concz+ b2*test_concz + prior("normal(-0.78,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_ds1 <- bsem(model = rsa_bio_ds1, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitrsa_bio_ds1, fit.measures = TRUE, standardized=TRUE)
+
+## INSOMNIA SYMPTOMS
+##TB x Biomarkers x ISI
+#WITHOUT PRIORS (/with no information priors)
+tb_bio_isi2 <- '
+level: within
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+ISI ~  f*TBz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+ISI ~ c*TBz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_isi2 <- bsem(model = tb_bio_isi2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_isi2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+tb_bio_isi1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.35,0.1)")*TBz+d1*TBz
+test_concz ~ prior("normal(-0.27,0.1)")*TBz+d2*TBz
+dheas_flowz ~ prior("normal(-0.27,0.1)")*TBz+d3*TBz
+ISI ~ prior("normal(1.05,1)")*TBz + f*TBz+ prior("normal(0,1)")*iga_flowz+e1*iga_flowz + prior("normal(0,1)")*test_concz+ e2*test_concz + prior("normal(0,1)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*TBz +a1*TBz
+test_concz ~ prior("normal(0,1)")*TBz+a2*TBz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*TBz+a3*TBz
+ISI ~ prior("normal(2.10,5)")*TBz +c*TBz + prior("normal(-1.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.58,5)")*test_concz+ b2*test_concz + prior("normal(-1.18,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfittb_bio_isi1 <- bsem(model = tb_bio_isi1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfittb_bio_isi1, fit.measures = TRUE, standardized=TRUE)
+
+##EXH x Biomarkers x ISI
+#WITHOUT PRIORS (/with no information priors)
+exh_bio_isi2 <- '
+level: within
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+ISI ~  f*EXHz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+ISI ~ c*EXHz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_isi2 <- bsem(model = exh_bio_isi2, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitexh_bio_isi2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+exh_bio_isi1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.26,0.1)")*EXHz+d1*EXHz
+test_concz ~ prior("normal(-0.27,0.1)")*EXHz+d2*EXHz
+dheas_flowz ~ prior("normal(-0.27,0.1)")*EXHz+d3*EXHz
+ISI ~ prior("normal(1.02,1)")*EXHz + f*EXHz+ prior("normal(0,1)")*iga_flowz+e1*iga_flowz + prior("normal(0,1)")*test_concz+ e2*test_concz + prior("normal(0,1)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(-0.09,0.2)")*EXHz +a1*EXHz
+test_concz ~ prior("normal(0,1)")*EXHz+a2*EXHz
+dheas_flowz ~ prior("normal(0,1)")*EXHz+a3*EXHz
+ISI ~ prior("normal(2.04,5)")*EXHz +c*EXHz + prior("normal(-1.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.58,5)")*test_concz+ b2*test_concz + prior("normal(-1.18,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitexh_bio_isi1 <- bsem(model = exh_bio_isi1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitexh_bio_isi1, fit.measures = TRUE, standardized=TRUE)
+
+##DEV x Biomarkers x ISI
+#WITHOUT PRIORS (/with no information priors)
+dev_bio_isi2 <- '
+level: within
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+ISI ~  f*DEVz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+ISI ~ c*DEVz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_isi2 <- bsem(model = dev_bio_isi2, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_isi2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+dev_bio_isi1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.64,0.1)")*DEVz+d1*DEVz
+test_concz ~ prior("normal(-0.1,0.1)")*DEVz+d2*DEVz
+dheas_flowz ~ prior("normal(-0.28,0.1)")*DEVz+d3*DEVz
+ISI ~ prior("normal(1.15,1)")*DEVz + f*DEVz+ prior("normal(0,1)")*iga_flowz+e1*iga_flowz + prior("normal(0,1)")*test_concz+ e2*test_concz + prior("normal(0,1)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(0.01,0.2)")*DEVz +a1*DEVz
+test_concz ~ prior("normal(0,1)")*DEVz+a2*DEVz
+dheas_flowz ~ prior("normal(0,1)")*DEVz+a3*DEVz
+ISI ~ prior("normal(0.54,5)")*DEVz +c*DEVz + prior("normal(-1.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.58,5)")*test_concz+ b2*test_concz + prior("normal(-1.18,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitdev_bio_isi1 <- bsem(model = dev_bio_isi1, data = datlx2, cluster = "sample_id", seed = 1)
+summary(bfitdev_bio_isi1, fit.measures = TRUE, standardized=TRUE)
+
+##RSA x Biomarkers x ISI
+#WITHOUT PRIORS (/with no information priors)
+rsa_bio_isi2 <- '
+level: within
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+ISI ~  f*RSAz+e1*iga_flowz + e2*test_concz +e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+ISI ~ c*RSAz +b1*iga_flowz + b2*test_concz + b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_isi2 <- bsem(model = rsa_bio_isi2, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitrsa_bio_isi2, fit.measures = TRUE, standardized=TRUE)
+
+# WITH PRIORS
+rsa_bio_isi1 <- '
+level: within
+iga_flowz ~ prior("normal(-0.1,0.2)")*RSAz+d1*RSAz
+test_concz ~ prior("normal(-0.19,0.1)")*RSAz+d2*RSAz
+dheas_flowz ~ prior("normal(-0.09,0.2)")*RSAz+d3*RSAz
+ISI ~ prior("normal(0.27,1)")*RSAz + f*RSAz+ prior("normal(0,1)")*iga_flowz+e1*iga_flowz + prior("normal(0,1)")*test_concz+ e2*test_concz + prior("normal(0,1)")*dheas_flowz+e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level: between
+iga_flowz ~ prior("normal(0.1,0.5)")*RSAz +a1*RSAz
+test_concz ~ prior("normal(0.1,0.5)")*RSAz+a2*RSAz
+dheas_flowz ~ prior("normal(0,1)")*RSAz+a3*RSAz
+ISI ~ prior("normal(1.64,5)")*RSAz +c*RSAz + prior("normal(-1.79,5)")*iga_flowz+b1*iga_flowz + prior("normal(-0.58,5)")*test_concz+ b2*test_concz + prior("normal(-1.18,5)")*dheas_flowz+b3*dheas_flowz  
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+bfitrsa_bio_isi1 <- bsem(model = rsa_bio_isi1, data = datlx2, cluster = "sample_id", sample = 5000, seed = 1)
+summary(bfitrsa_bio_isi1, fit.measures = TRUE, standardized=TRUE)
+```

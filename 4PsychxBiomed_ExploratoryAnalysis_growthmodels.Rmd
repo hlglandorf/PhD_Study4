@@ -1,0 +1,2857 @@
+---
+title: "Psych x Biomed Growth Models"
+author: "H.L. Glandorf"
+date: "2024-05-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Psych x Biomed Study Exploratory Analysis (Part 2)
+This code file carries out part of the exploratory analyses for this study (part 2). 
+
+These are the objectives: 
+- data preparation (e.g., scale the data, create long format, clean data)
+- plot trajectories of variables (focusing on burnout and biomarkers here)
+- growth models for each variable individually (focusing on burnout and biomarkers here; using intercept, linear slope, and quadratic slope)
+- intercept growth models for biomarkers with baseline burnout (for biomarkers that fit best with intercept only)
+- linear growth models for biomarkers with baseline burnout (for biomarkers that fit best with intercept + linear slope)
+- growth models with two intercept factors (for burnout and biomarker) and covariance of intercepts
+- parallel process model with two intercept factors (for burnout and biomarker) and linear slope for biomarker
+- parallel process model with intercept + linear slope for both burnout and biomarker
+
+# Load libraries
+```{r libraries}
+library(lavaan)
+library(readxl)
+library(broom)
+library(tidyverse)
+library(ggplot2)
+library(semTools)
+library(MASS)  
+library(psych)    
+```
+
+# Load data
+```{r data loading}
+dat <- read_csv("redframe.csv")
+```
+
+# Scaling
+```{r scaling and outlier screening}
+##add in time difference between time of saliva sample and time eaten
+dat <- dat %>% mutate(t1timediff = t1time-t1timeeat,
+               t2timediff = t2time-t2timeeat,
+               t3timediff = t3time-t3timeeat)
+##calculating z-scores
+datz <- dat %>% 
+  mutate(t1TB_z = scale(t1TB), 
+         t1EXH_z = scale(t1EXH),
+         t1DEV_z = scale(t1DEV),
+         t1RSA_z = scale(t1RSA),
+         t1PS_z = scale(t1PS),
+         t1DS_z = scale(t1DS),
+         t1PSQI_z = scale(t1PSQI),
+         t1ISI_z = scale(t1ISI),
+         t1iga_z = scale(t1iga_flow),
+         t1testo_z = scale(t1test_conc),
+         t1dheas_z = scale(t1dheas_flow),
+         t1cort_z = scale(t1cort_conc),
+         t1crp_z = scale(t1crp_conc),
+         t1timediff_z = scale(t1timediff),
+         t2TB_z = scale(t2TB), 
+         t2EXH_z = scale(t2EXH),
+         t2DEV_z = scale(t2DEV),
+         t2RSA_z = scale(t2RSA),
+         t2PS_z = scale(t2PS),
+         t2DS_z = scale(t2DS),
+         t2PSQI_z = scale(t2PSQI),
+         t2ISI_z = scale(t2ISI),
+         t2iga_z = scale(t2iga_flow),
+         t2testo_z = scale(t2test_conc),
+         t2dheas_z = scale(t2dheas_flow),
+         t2cort_z = scale(t2cort_conc),
+         t2crp_z = scale(t2crp_conc),
+         t2timediff_z = scale(t2timediff),
+         t3TB_z = scale(t3TB), 
+         t3EXH_z = scale(t3EXH),
+         t3DEV_z = scale(t3DEV),
+         t3RSA_z = scale(t3RSA),
+         t3PS_z = scale(t3PS),
+         t3DS_z = scale(t3DS),
+         t3PSQI_z = scale(t3PSQI),
+         t3ISI_z = scale(t3ISI),
+         t3iga_z = scale(t3iga_flow),
+         t3testo_z = scale(t3test_conc),
+         t3dheas_z = scale(t3dheas_flow),
+         t3cort_z = scale(t3cort_conc),
+         t3crp_z = scale(t3crp_conc),
+         t3timediff_z = scale(t3timediff))
+
+##replacing extremes with NAs
+#wave 1
+datz$t1TB <- replace(datz$t1TB, abs(datz$t1TB_z) > 3.0, NA)
+datz$t1EXH <- replace(datz$t1EXH, abs(datz$t1EXH_z) > 3.0, NA)
+datz$t1DEV <- replace(datz$t1DEV, abs(datz$t1DEV_z) > 3.0, NA)
+datz$t1RSA <- replace(datz$t1RSA, abs(datz$t1RSA_z) > 3.0, NA)
+datz$t1PS <- replace(datz$t1PS, abs(datz$t1PS_z) > 3.0, NA)
+datz$t1DS <- replace(datz$t1DS, abs(datz$t1DS_z) > 3.0, NA)
+datz$t1PSQI <- replace(datz$t1PSQI, abs(datz$t1PSQI_z) > 3.0, NA)
+datz$t1ISI <- replace(datz$t1ISI, abs(datz$t1ISI_z) > 3.0, NA)
+datz$t1iga_flow <- replace(datz$t1iga_flow, abs(datz$t1iga_z) > 3.0, NA)
+datz$t1test_conc <- replace(datz$t1test_conc, abs(datz$t1testo_z) > 3.0, NA)
+datz$t1dheas_flow <- replace(datz$t1dheas_flow, abs(datz$t1dheas_z) > 3.0, NA)
+datz$t1cort_conc <- replace(datz$t1cort_conc, abs(datz$t1cort_z) > 3.0, NA)
+datz$t1crp_conc <- replace(datz$t1crp_conc, abs(datz$t1crp_z) > 3.0, NA)
+
+##wave1 for z-values
+datz$t1TB_z <- replace(datz$t1TB_z, abs(datz$t1TB_z) > 3.0, NA)
+datz$t1EXH_z <- replace(datz$t1EXH_z, abs(datz$t1EXH_z) > 3.0, NA)
+datz$t1DEV_z <- replace(datz$t1DEV_z, abs(datz$t1DEV_z) > 3.0, NA)
+datz$t1RSA_z <- replace(datz$t1RSA_z, abs(datz$t1RSA_z) > 3.0, NA)
+datz$t1PS_z <- replace(datz$t1PS_z, abs(datz$t1PS_z) > 3.0, NA)
+datz$t1DS_z <- replace(datz$t1DS_z, abs(datz$t1DS_z) > 3.0, NA)
+datz$t1PSQI_z <- replace(datz$t1PSQI_z, abs(datz$t1PSQI_z) > 3.0, NA)
+datz$t1ISI_z <- replace(datz$t1ISI_z, abs(datz$t1ISI_z) > 3.0, NA)
+datz$t1iga_z <- replace(datz$t1iga_z, abs(datz$t1iga_z) > 3.0, NA)
+datz$t1testo_z <- replace(datz$t1testo_z, abs(datz$t1testo_z) > 3.0, NA)
+datz$t1dheas_z <- replace(datz$t1dheas_z, abs(datz$t1dheas_z) > 3.0, NA)
+datz$t1cort_z <- replace(datz$t1cort_z, abs(datz$t1cort_z) > 3.0, NA)
+datz$t1crp_z <- replace(datz$t1crp_z, abs(datz$t1crp_z) > 3.0, NA)
+
+#wave 2
+datz$t2TB <- replace(datz$t2TB, abs(datz$t2TB_z) > 3.0, NA)
+datz$t2EXH <- replace(datz$t2EXH, abs(datz$t2EXH_z) > 3.0, NA)
+datz$t2DEV <- replace(datz$t2DEV, abs(datz$t2DEV_z) > 3.0, NA)
+datz$t2RSA <- replace(datz$t2RSA, abs(datz$t2RSA_z) > 3.0, NA)
+datz$t2PS <- replace(datz$t2PS, abs(datz$t2PS_z) > 3.0, NA)
+datz$t2DS <- replace(datz$t2DS, abs(datz$t2DS_z) > 3.0, NA)
+datz$t2PSQI <- replace(datz$t2PSQI, abs(datz$t2PSQI_z) > 3.0, NA)
+datz$t2ISI <- replace(datz$t2ISI, abs(datz$t2ISI_z) > 3.0, NA)
+datz$t2iga_flow <- replace(datz$t2iga_flow, abs(datz$t2iga_z) > 3.0, NA)
+datz$t2test_conc <- replace(datz$t2test_conc, abs(datz$t2testo_z) > 3.0, NA)
+datz$t2dheas_flow <- replace(datz$t2dheas_flow, abs(datz$t2dheas_z) > 3.0, NA)
+datz$t2cort_conc <- replace(datz$t2cort_conc, abs(datz$t2cort_z) > 3.0, NA)
+datz$t2crp_conc <- replace(datz$t2crp_conc, abs(datz$t2crp_z) > 3.0, NA)
+
+##wave2 for z-values
+datz$t2TB_z <- replace(datz$t2TB_z, abs(datz$t2TB_z) > 3.0, NA)
+datz$t2EXH_z <- replace(datz$t2EXH_z, abs(datz$t2EXH_z) > 3.0, NA)
+datz$t2DEV_z <- replace(datz$t2DEV_z, abs(datz$t2DEV_z) > 3.0, NA)
+datz$t2RSA_z <- replace(datz$t2RSA_z, abs(datz$t2RSA_z) > 3.0, NA)
+datz$t2PS_z <- replace(datz$t2PS_z, abs(datz$t2PS_z) > 3.0, NA)
+datz$t2DS_z <- replace(datz$t2DS_z, abs(datz$t2DS_z) > 3.0, NA)
+datz$t2PSQI_z <- replace(datz$t2PSQI_z, abs(datz$t2PSQI_z) > 3.0, NA)
+datz$t2ISI_z <- replace(datz$t2ISI_z, abs(datz$t2ISI_z) > 3.0, NA)
+datz$t2iga_z <- replace(datz$t2iga_z, abs(datz$t2iga_z) > 3.0, NA)
+datz$t2testo_z <- replace(datz$t2testo_z, abs(datz$t2testo_z) > 3.0, NA)
+datz$t2dheas_z <- replace(datz$t2dheas_z, abs(datz$t2dheas_z) > 3.0, NA)
+datz$t2cort_z <- replace(datz$t2cort_z, abs(datz$t2cort_z) > 3.0, NA)
+datz$t2crp_z <- replace(datz$t2crp_z, abs(datz$t2crp_z) > 3.0, NA)
+
+#wave 3
+datz$t3TB <- replace(datz$t3TB, abs(datz$t3TB_z) > 3.0, NA)
+datz$t3EXH <- replace(datz$t3EXH, abs(datz$t3EXH_z) > 3.0, NA)
+datz$t3DEV <- replace(datz$t3DEV, abs(datz$t3DEV_z) > 3.0, NA)
+datz$t3RSA <- replace(datz$t3RSA, abs(datz$t3RSA_z) > 3.0, NA)
+datz$t3PS <- replace(datz$t3PS, abs(datz$t3PS_z) > 3.0, NA)
+datz$t3DS <- replace(datz$t3DS, abs(datz$t3DS_z) > 3.0, NA)
+datz$t3PSQI <- replace(datz$t3PSQI, abs(datz$t3PSQI_z) > 3.0, NA)
+datz$t3ISI <- replace(datz$t3ISI, abs(datz$t3ISI_z) > 3.0, NA)
+datz$t3iga_flow <- replace(datz$t3iga_flow, abs(datz$t3iga_z) > 3.0, NA)
+datz$t3test_conc <- replace(datz$t3test_conc, abs(datz$t3testo_z) > 3.0, NA)
+datz$t3dheas_flow <- replace(datz$t3dheas_flow, abs(datz$t3dheas_z) > 3.0, NA)
+datz$t3cort_conc <- replace(datz$t3cort_conc, abs(datz$t3cort_z) > 3.0, NA)
+datz$t3crp_conc <- replace(datz$t3crp_conc, abs(datz$t3crp_z) > 3.0, NA)
+
+##wave3 for z-values
+datz$t3TB_z <- replace(datz$t3TB_z, abs(datz$t3TB_z) > 3.0, NA)
+datz$t3EXH_z <- replace(datz$t3EXH_z, abs(datz$t3EXH_z) > 3.0, NA)
+datz$t3DEV_z <- replace(datz$t3DEV_z, abs(datz$t3DEV_z) > 3.0, NA)
+datz$t3RSA_z <- replace(datz$t3RSA_z, abs(datz$t3RSA_z) > 3.0, NA)
+datz$t3PS_z <- replace(datz$t3PS_z, abs(datz$t3PS_z) > 3.0, NA)
+datz$t3DS_z <- replace(datz$t3DS_z, abs(datz$t3DS_z) > 3.0, NA)
+datz$t3PSQI_z <- replace(datz$t3PSQI_z, abs(datz$t3PSQI_z) > 3.0, NA)
+datz$t3ISI_z <- replace(datz$t3ISI_z, abs(datz$t3ISI_z) > 3.0, NA)
+datz$t3iga_z <- replace(datz$t3iga_z, abs(datz$t3iga_z) > 3.0, NA)
+datz$t3testo_z <- replace(datz$t3testo_z, abs(datz$t3testo_z) > 3.0, NA)
+datz$t3dheas_z <- replace(datz$t3dheas_z, abs(datz$t3dheas_z) > 3.0, NA)
+datz$t3cort_z <- replace(datz$t3cort_z, abs(datz$t3cort_z) > 3.0, NA)
+datz$t3crp_z <- replace(datz$t3crp_z, abs(datz$t3crp_z) > 3.0, NA)
+```
+
+# Cleaning data 
+```{r cleaning data}
+##turning biomarker values into NAs where timediff is under 1.5hrs
+#wave 1
+datz$t1iga_z <- replace(datz$t1iga_z, datz$t1timediff < 1.5, NA)
+datz$t1testo_z <- replace(datz$t1testo_z, datz$t1timediff < 1.5, NA)
+datz$t1dheas_z <- replace(datz$t1dheas_z, datz$t1timediff < 1.5, NA)
+datz$t1cort_z <- replace(datz$t1cort_z, datz$t1timediff < 1.5, NA)
+datz$t1crp_z <- replace(datz$t1crp_z, datz$t1timediff < 1.5, NA)
+
+#wave 2
+datz$t2iga_z <- replace(datz$t2iga_z, datz$t2timediff < 1.5, NA)
+datz$t2testo_z <- replace(datz$t2testo_z, datz$t2timediff < 1.5, NA)
+datz$t2dheas_z <- replace(datz$t2dheas_z, datz$t2timediff < 1.5, NA)
+datz$t2cort_z <- replace(datz$t2cort_z, datz$t2timediff < 1.5, NA)
+datz$t2crp_z <- replace(datz$t2crp_z, datz$t2timediff < 1.5, NA)
+
+#wave 3
+datz$t3iga_z <- replace(datz$t3iga_z, datz$t3timediff < 1.5, NA)
+datz$t3testo_z <- replace(datz$t3testo_z, datz$t3timediff < 1.5, NA)
+datz$t3dheas_z <- replace(datz$t3dheas_z, datz$t3timediff < 1.5, NA)
+datz$t3cort_z <- replace(datz$t3cort_z, datz$t3timediff < 1.5, NA)
+datz$t3crp_z <- replace(datz$t3crp_z, datz$t3timediff < 1.5, NA)
+```
+
+# Creating a long format
+```{r reformating to long format and cleaning}
+#total burnout
+datl_tb <- datz %>% 
+  dplyr::select(sample_id, t1TB, t2TB, t3TB) %>%
+  pivot_longer(cols = c(t1TB, t2TB, t3TB),
+                               names_to = "timepoint",
+                               values_to = "TB") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB" ~"t1", 
+                         timepoint =="t2TB" ~ "t2",
+                         timepoint =="t3TB" ~ "t3"))
+datl_tbz <- datz %>% 
+  dplyr::select(sample_id, t1TB_z, t2TB_z, t3TB_z) %>%
+  pivot_longer(cols = c(t1TB_z, t2TB_z, t3TB_z),
+                               names_to = "timepoint",
+                               values_to = "TBz") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB_z" ~"t1", 
+                         timepoint =="t2TB_z" ~ "t2",
+                         timepoint =="t3TB_z" ~ "t3"))
+#exhaustion
+datl_exh <- datz %>% 
+  dplyr::select(sample_id, t1EXH, t2EXH, t3EXH) %>%
+  pivot_longer(cols = c(t1EXH, t2EXH, t3EXH),
+                               names_to = "timepoint",
+                               values_to = "EXH") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH" ~"t1", 
+                         timepoint =="t2EXH" ~ "t2",
+                         timepoint =="t3EXH" ~ "t3"))
+datl_exhz <- datz %>% 
+  dplyr::select(sample_id, t1EXH_z, t2EXH_z, t3EXH_z) %>%
+  pivot_longer(cols = c(t1EXH_z, t2EXH_z, t3EXH_z),
+                               names_to = "timepoint",
+                               values_to = "EXHz") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH_z" ~"t1", 
+                         timepoint =="t2EXH_z" ~ "t2",
+                         timepoint =="t3EXH_z" ~ "t3"))
+#devaluation
+datl_dev <- datz %>% 
+  dplyr::select(sample_id, t1DEV, t2DEV, t3DEV) %>%
+  pivot_longer(cols = c(t1DEV, t2DEV, t3DEV),
+                               names_to = "timepoint",
+                               values_to = "DEV") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV" ~"t1", 
+                         timepoint =="t2DEV" ~ "t2",
+                         timepoint =="t3DEV" ~ "t3"))
+datl_devz <- datz %>% 
+  dplyr::select(sample_id, t1DEV_z, t2DEV_z, t3DEV_z) %>%
+  pivot_longer(cols = c(t1DEV_z, t2DEV_z, t3DEV_z),
+                               names_to = "timepoint",
+                               values_to = "DEVz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV_z" ~"t1", 
+                         timepoint =="t2DEV_z" ~ "t2",
+                         timepoint =="t3DEV_z" ~ "t3"))
+#rsa
+datl_rsa <- datz %>% 
+  dplyr::select(sample_id, t1RSA, t2RSA, t3RSA) %>%
+  pivot_longer(cols = c(t1RSA, t2RSA, t3RSA),
+                               names_to = "timepoint",
+                               values_to = "RSA") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA" ~"t1", 
+                         timepoint =="t2RSA" ~ "t2",
+                         timepoint =="t3RSA" ~ "t3"))
+datl_rsaz <- datz %>% 
+  dplyr::select(sample_id, t1RSA_z, t2RSA_z, t3RSA_z) %>%
+  pivot_longer(cols = c(t1RSA_z, t2RSA_z, t3RSA_z),
+                               names_to = "timepoint",
+                               values_to = "RSAz") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA_z" ~"t1", 
+                         timepoint =="t2RSA_z" ~ "t2",
+                         timepoint =="t3RSA_z" ~ "t3"))
+#DS
+datl_ds <- datz %>% 
+  dplyr::select(sample_id, t1DS, t2DS, t3DS) %>%
+  pivot_longer(cols = c(t1DS, t2DS, t3DS),
+                               names_to = "timepoint",
+                               values_to = "DS") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS" ~"t1", 
+                         timepoint =="t2DS" ~ "t2",
+                         timepoint =="t3DS" ~ "t3"))
+datl_dsz <- datz %>% 
+  dplyr::select(sample_id, t1DS_z, t2DS_z, t3DS_z) %>%
+  pivot_longer(cols = c(t1DS_z, t2DS_z, t3DS_z),
+                               names_to = "timepoint",
+                               values_to = "DSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS_z" ~"t1", 
+                         timepoint =="t2DS_z" ~ "t2",
+                         timepoint =="t3DS_z" ~ "t3"))
+#PS
+datl_ps <- datz %>% 
+  dplyr::select(sample_id, t1PS, t2PS, t3PS) %>%
+  pivot_longer(cols = c(t1PS, t2PS, t3PS),
+                               names_to = "timepoint",
+                               values_to = "PS") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS" ~"t1", 
+                         timepoint =="t2PS" ~ "t2",
+                         timepoint =="t3PS" ~ "t3"))
+datl_psz <- datz %>% 
+  dplyr::select(sample_id, t1PS_z, t2PS_z, t3PS_z) %>%
+  pivot_longer(cols = c(t1PS_z, t2PS_z, t3PS_z),
+                               names_to = "timepoint",
+                               values_to = "PSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS_z" ~"t1", 
+                         timepoint =="t2PS_z" ~ "t2",
+                         timepoint =="t3PS_z" ~ "t3"))
+#PSQI
+datl_psqi <- datz %>% 
+  dplyr::select(sample_id, t1PSQI, t2PSQI, t3PSQI) %>%
+  pivot_longer(cols = c(t1PSQI, t2PSQI, t3PSQI),
+                               names_to = "timepoint",
+                               values_to = "PSQI") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI" ~"t1", 
+                         timepoint =="t2PSQI" ~ "t2",
+                         timepoint =="t3PSQI" ~ "t3"))
+datl_psqiz <- datz %>% 
+  dplyr::select(sample_id, t1PSQI_z, t2PSQI_z, t3PSQI_z) %>%
+  pivot_longer(cols = c(t1PSQI_z, t2PSQI_z, t3PSQI_z),
+                               names_to = "timepoint",
+                               values_to = "PSQIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI_z" ~"t1", 
+                         timepoint =="t2PSQI_z" ~ "t2",
+                         timepoint =="t3PSQI_z" ~ "t3"))
+#ISI
+datl_isi <- datz %>% 
+  dplyr::select(sample_id, t1ISI, t2ISI, t3ISI) %>%
+  pivot_longer(cols = c(t1ISI, t2ISI, t3ISI),
+                               names_to = "timepoint",
+                               values_to = "ISI") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI" ~"t1", 
+                         timepoint =="t2ISI" ~ "t2",
+                         timepoint =="t3ISI" ~ "t3"))
+datl_isiz <- datz %>% 
+  dplyr::select(sample_id, t1ISI_z, t2ISI_z, t3ISI_z) %>%
+  pivot_longer(cols = c(t1ISI_z, t2ISI_z, t3ISI_z),
+                               names_to = "timepoint",
+                               values_to = "ISIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI_z" ~"t1", 
+                         timepoint =="t2ISI_z" ~ "t2",
+                         timepoint =="t3ISI_z" ~ "t3"))
+#iga flow
+datl_igaflow <- datz %>% 
+  dplyr::select(sample_id, t1iga_flow, t2iga_flow, t3iga_flow) %>%
+  pivot_longer(cols = c(t1iga_flow, t2iga_flow, t3iga_flow),
+                               names_to = "timepoint",
+                               values_to = "iga_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_flow" ~"t1", 
+                         timepoint =="t2iga_flow" ~ "t2",
+                         timepoint =="t3iga_flow" ~ "t3"))
+datl_igafz <- datz %>% 
+  dplyr::select(sample_id, t1iga_z, t2iga_z, t3iga_z) %>%
+  pivot_longer(cols = c(t1iga_z, t2iga_z, t3iga_z),
+                               names_to = "timepoint",
+                               values_to = "iga_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_z" ~"t1", 
+                         timepoint =="t2iga_z" ~ "t2",
+                         timepoint =="t3iga_z" ~ "t3"))
+#testosterone conc
+datl_testc <- datz %>% 
+  dplyr::select(sample_id, t1test_conc, t2test_conc, t3test_conc) %>%
+  pivot_longer(cols = c(t1test_conc, t2test_conc, t3test_conc),
+                               names_to = "timepoint",
+                               values_to = "test_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1test_conc" ~"t1", 
+                         timepoint =="t2test_conc" ~ "t2",
+                         timepoint =="t3test_conc" ~ "t3"))
+datl_testcz <- datz %>% 
+  dplyr::select(sample_id, t1testo_z, t2testo_z, t3testo_z) %>%
+  pivot_longer(cols = c(t1testo_z, t2testo_z, t3testo_z),
+                               names_to = "timepoint",
+                               values_to = "test_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1testo_z" ~"t1", 
+                         timepoint =="t2testo_z" ~ "t2",
+                         timepoint =="t3testo_z" ~ "t3"))
+#dheas flow
+datl_dheasf <- datz %>% 
+  dplyr::select(sample_id, t1dheas_flow, t2dheas_flow, t3dheas_flow) %>%
+  pivot_longer(cols = c(t1dheas_flow, t2dheas_flow, t3dheas_flow),
+                               names_to = "timepoint",
+                               values_to = "dheas_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_flow" ~"t1", 
+                         timepoint =="t2dheas_flow" ~ "t2",
+                         timepoint =="t3dheas_flow" ~ "t3"))
+datl_dheasfz <- datz %>% 
+  dplyr::select(sample_id, t1dheas_z, t2dheas_z, t3dheas_z) %>%
+  pivot_longer(cols = c(t1dheas_z, t2dheas_z, t3dheas_z),
+                               names_to = "timepoint",
+                               values_to = "dheas_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_z" ~"t1", 
+                         timepoint =="t2dheas_z" ~ "t2",
+                         timepoint =="t3dheas_z" ~ "t3"))
+#cort conc
+datl_cortc <- datz %>% 
+  dplyr::select(sample_id, t1cort_conc, t2cort_conc, t3cort_conc) %>%
+  pivot_longer(cols = c(t1cort_conc, t2cort_conc, t3cort_conc),
+                               names_to = "timepoint",
+                               values_to = "cort_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_conc" ~"t1", 
+                         timepoint =="t2cort_conc" ~ "t2",
+                         timepoint =="t3cort_conc" ~ "t3"))
+datl_cortcz <- datz %>% 
+  dplyr::select(sample_id, t1cort_z, t2cort_z, t3cort_z) %>%
+  pivot_longer(cols = c(t1cort_z, t2cort_z, t3cort_z),
+                               names_to = "timepoint",
+                               values_to = "cort_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_z" ~"t1", 
+                         timepoint =="t2cort_z" ~ "t2",
+                         timepoint =="t3cort_z" ~ "t3"))
+#crp conc
+datl_crpc <- datz %>% 
+  dplyr::select(sample_id, t1crp_conc, t2crp_conc, t3crp_conc) %>%
+  pivot_longer(cols = c(t1crp_conc, t2crp_conc, t3crp_conc),
+                               names_to = "timepoint",
+                               values_to = "crp_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_conc" ~"t1", 
+                         timepoint =="t2crp_conc" ~ "t2",
+                         timepoint =="t3crp_conc" ~ "t3"))
+datl_crpcz <- datz %>% 
+  dplyr::select(sample_id, t1crp_z, t2crp_z, t3crp_z) %>%
+  pivot_longer(cols = c(t1crp_z, t2crp_z, t3crp_z),
+                               names_to = "timepoint",
+                               values_to = "crp_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_z" ~"t1", 
+                         timepoint =="t2crp_z" ~ "t2",
+                         timepoint =="t3crp_z" ~ "t3"))
+#time difference
+datl_timed <- datz %>% 
+  dplyr::select(sample_id, t1timediff, t2timediff, t3timediff) %>%
+  pivot_longer(cols = c(t1timediff, t2timediff, t3timediff),
+                               names_to = "timepoint",
+                               values_to = "timediff") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff" ~"t1", 
+                         timepoint =="t2timediff" ~ "t2",
+                         timepoint =="t3timediff" ~ "t3"))
+datl_timedz <- datz %>% 
+  dplyr::select(sample_id, t1timediff_z, t2timediff_z, t3timediff_z) %>%
+  pivot_longer(cols = c(t1timediff_z, t2timediff_z, t3timediff_z),
+                               names_to = "timepoint",
+                               values_to = "timediffz") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff_z" ~"t1", 
+                         timepoint =="t2timediff_z" ~ "t2",
+                         timepoint =="t3timediff_z" ~ "t3"))
+
+##notes
+datl_notes <- datz %>% 
+  dplyr::select(sample_id, t1notes, t2notes, t3notes) %>%
+  pivot_longer(cols = c(t1notes, t2notes, t3notes),
+                               names_to = "timepoint",
+                               values_to = "notes") %>%
+  mutate(timepoint = case_when(timepoint== "t1notes" ~"t1", 
+                         timepoint =="t2notes" ~ "t2",
+                         timepoint =="t3notes" ~ "t3"))
+
+##join all files together
+datl <- inner_join(datl_tb, datl_tbz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exh, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exhz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dev, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_devz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsa, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsaz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ds, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dsz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ps, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psqi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_psqiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igaflow, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igafz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testc, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testcz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dheasf, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_dheasfz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timed, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timedz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_notes, by = c("sample_id", "timepoint"))
+
+##remove row 182 for eating
+datlx <- datl[-182,]
+##filtering data by time difference between eating and sample collection
+datlx <- datlx %>% filter(timediff > 1.5)
+##remove participant 91 for injury
+datlx <- datlx %>% filter(sample_id != 91, sample_id!=163) 
+
+#write.csv(datlx, "longdat.csv")
+```
+
+# Plots for trajectories 
+```{r trajectory plots}
+#Total Burnout
+ind_tb_traj <-
+  ggplot(datlx, aes(x = timepoint, y = TB, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of Total Burnout',
+       x = 'Timepoint',
+       y = 'TB')+
+  ylim(0,4)+
+  theme(legend.position = 'none')
+ind_tb_traj
+
+#Exhaustion
+ind_exh_traj <-
+  ggplot(datlx, aes(x = timepoint, y = EXH, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of Exhaustion',
+       x = 'Timepoint',
+       y = 'EXH')+
+  ylim(0,4)+
+  theme(legend.position = 'none')
+ind_exh_traj
+
+#Devaluation
+ind_dev_traj <-
+  ggplot(datlx, aes(x = timepoint, y = DEV, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of Devaluation',
+       x = 'Timepoint',
+       y = 'DEV')+
+  ylim(0,4)+
+  theme(legend.position = 'none')
+ind_dev_traj
+
+#RSA
+ind_rsa_traj <-
+  ggplot(datlx, aes(x = timepoint, y = RSA, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of RSA',
+       x = 'Timepoint',
+       y = 'RSA')+
+  ylim(0,4)+
+  theme(legend.position = 'none')
+ind_rsa_traj
+
+#IgA Flow Rate
+ind_iga_traj <-
+  ggplot(datlx, aes(x = timepoint, y = iga_flow, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of IgA Flow Rate',
+       x = 'Timepoint',
+       y = 'IgA')+
+  theme(legend.position = 'none')
+ind_iga_traj
+
+#Testosterone
+ind_testo_traj <-
+  ggplot(datlx, aes(x = timepoint, y = test_conc, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of Testosterone',
+       x = 'Timepoint',
+       y = 'Testosterone')+
+  theme(legend.position = 'none')
+ind_testo_traj
+
+#DHEA-S Flow Rate
+ind_dheas_traj <-
+  ggplot(datlx, aes(x = timepoint, y = dheas_flow, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of DHEA-S Flow Rate',
+       x = 'Timepoint',
+       y = 'DHEA-S')+
+  theme(legend.position = 'none')
+ind_dheas_traj
+
+#Cortisol
+ind_cort_traj <-
+  ggplot(datlx, aes(x = timepoint, y = cort_conc, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of Cortisol',
+       x = 'Timepoint',
+       y = 'Cortisol')+
+  theme(legend.position = 'none')
+ind_cort_traj
+
+#CRP
+ind_crp_traj <-
+  ggplot(datlx, aes(x = timepoint, y = crp_conc, group=sample_id, color=sample_id))+
+  geom_point() +
+  geom_line(alpha=0.2)+
+  labs(title = 'Observed Trajectories of CRP',
+       x = 'Timepoint',
+       y = 'CRP')+
+  theme(legend.position = 'none')
+ind_crp_traj
+```
+
+# Growth models for individual variables
+At first, a number of growth models are explored for each variable (burnout total, dimensions as well as biomarkers). Mainly, growth models with an intercept are defined first. The next model adds a linear slope. The last model adds a quadratic slope. 
+
+# Growth models for total burnout
+```{r tb growth models}
+#Total Burnout
+#no growth
+mod_tb <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1TB_z
+      eta_1 =~ 1*t2TB_z
+      eta_1 =~ 1*t3TB_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1TB_z ~~ theta*t1TB_z
+      t2TB_z ~~ theta*t2TB_z
+      t3TB_z ~~ theta*t3TB_z
+
+  # manifest means (fixed at zero)
+      t1TB_z ~ 0*1
+      t2TB_z ~ 0*1
+      t3TB_z ~ 0*1
+
+' 
+mod_tb_fit <- sem(mod_tb, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_tb_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_tb2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1TB_z
+      eta_1 =~ 1*t2TB_z
+      eta_1 =~ 1*t3TB_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1TB_z
+      eta_2 =~ 1*t2TB_z
+      eta_2 =~ 2*t3TB_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1TB_z ~~ theta*t1TB_z
+      t2TB_z ~~ theta*t2TB_z
+      t3TB_z ~~ theta*t3TB_z
+
+  # manifest means (fixed at zero)
+      t1TB_z ~ 0*1
+      t2TB_z ~ 0*1
+      t3TB_z ~ 0*1
+'
+
+mod_tb2_fit <- sem(mod_tb2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_tb3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1TB_z + 
+         1*t2TB_z + 
+         1*t3TB_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1TB_z +
+         1*t2TB_z +
+         2*t3TB_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1TB_z +
+         1*t2TB_z +
+         4*t3TB_z
+
+#manifest variances to be same over time
+t1TB_z ~~ start(1)*theta*t1TB_z
+t2TB_z ~~ theta*t2TB_z
+t3TB_z ~~ theta*t3TB_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1TB_z ~ 0*1
+t2TB_z ~ 0*1
+t3TB_z ~ 0*1
+'
+mod_tb3_fit <- sem(mod_tb3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_tb_fit, mod_tb2_fit)
+```
+
+# Growth models for exhaustion
+```{r exh models}
+#Exhaustion
+#no growth
+mod_exh <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1EXH_z
+      eta_1 =~ 1*t2EXH_z
+      eta_1 =~ 1*t3EXH_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1EXH_z ~~ theta*t1EXH_z
+      t2EXH_z ~~ theta*t2EXH_z
+      t3EXH_z ~~ theta*t3EXH_z
+
+  # manifest means (fixed at zero)
+      t1EXH_z ~ 0*1
+      t2EXH_z ~ 0*1
+      t3EXH_z ~ 0*1
+
+' 
+mod_exh_fit <- sem(mod_exh, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_exh_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_exh2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1EXH_z
+      eta_1 =~ 1*t2EXH_z
+      eta_1 =~ 1*t3EXH_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1EXH_z
+      eta_2 =~ 1*t2EXH_z
+      eta_2 =~ 2*t3EXH_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1EXH_z ~~ theta*t1EXH_z
+      t2EXH_z ~~ theta*t2EXH_z
+      t3EXH_z ~~ theta*t3EXH_z
+
+  # manifest means (fixed at zero)
+      t1EXH_z ~ 0*1
+      t2EXH_z ~ 0*1
+      t3EXH_z ~ 0*1
+'
+
+mod_exh2_fit <- sem(mod_exh2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_exh2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_exh3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1EXH_z + 
+         1*t2EXH_z + 
+         1*t3EXH_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1EXH_z +
+         1*t2EXH_z +
+         2*t3EXH_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1EXH_z +
+         1*t2EXH_z +
+         4*t3EXH_z
+
+#manifest variances to be same over time
+t1EXH_z ~~ start(1)*theta*t1EXH_z
+t2EXH_z ~~ theta*t2EXH_z
+t3EXH_z ~~ theta*t3EXH_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1EXH_z ~ 0*1
+t2EXH_z ~ 0*1
+t3EXH_z ~ 0*1
+'
+mod_exh3_fit <- sem(mod_exh3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_exh3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_exh_fit, mod_exh3_fit)
+```
+
+# Growth models for devaluation
+```{r dev models}
+#Devaluation
+#no growth
+mod_dev <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1DEV_z
+      eta_1 =~ 1*t2DEV_z
+      eta_1 =~ 1*t3DEV_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1DEV_z ~~ theta*t1DEV_z
+      t2DEV_z ~~ theta*t2DEV_z
+      t3DEV_z ~~ theta*t3DEV_z
+
+  # manifest means (fixed at zero)
+      t1DEV_z ~ 0*1
+      t2DEV_z ~ 0*1
+      t3DEV_z ~ 0*1
+
+' 
+mod_dev_fit <- sem(mod_dev, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_dev_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_dev2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1DEV_z
+      eta_1 =~ 1*t2DEV_z
+      eta_1 =~ 1*t3DEV_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1DEV_z
+      eta_2 =~ 1*t2DEV_z
+      eta_2 =~ 2*t3DEV_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1DEV_z ~~ theta*t1DEV_z
+      t2DEV_z ~~ theta*t2DEV_z
+      t3DEV_z ~~ theta*t3DEV_z
+
+  # manifest means (fixed at zero)
+      t1DEV_z ~ 0*1
+      t2DEV_z ~ 0*1
+      t3DEV_z ~ 0*1
+'
+
+mod_dev2_fit <- sem(mod_dev2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_dev2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_dev3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1DEV_z + 
+         1*t2DEV_z + 
+         1*t3DEV_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1DEV_z +
+         1*t2DEV_z +
+         2*t3DEV_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1DEV_z +
+         1*t2DEV_z +
+         4*t3DEV_z
+
+#manifest variances to be same over time
+t1DEV_z ~~ start(1)*theta*t1DEV_z
+t2DEV_z ~~ theta*t2DEV_z
+t3DEV_z ~~ theta*t3DEV_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1DEV_z ~ 0*1
+t2DEV_z ~ 0*1
+t3DEV_z ~ 0*1
+'
+mod_dev3_fit <- sem(mod_dev3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_dev3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_dev_fit, mod_dev3_fit)
+```
+
+# Growth models for reduced sense of accomplishment (RSA)
+```{r rsa models}
+#RSA
+#no growth
+mod_rsa <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1RSA_z ~~ theta*t1RSA_z
+      t2RSA_z ~~ theta*t2RSA_z
+      t3RSA_z ~~ theta*t3RSA_z
+
+  # manifest means (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+' 
+mod_rsa_fit <- sem(mod_rsa, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_rsa_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_rsa2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1RSA_z
+      eta_2 =~ 1*t2RSA_z
+      eta_2 =~ 2*t3RSA_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1RSA_z ~~ theta*t1RSA_z
+      t2RSA_z ~~ theta*t2RSA_z
+      t3RSA_z ~~ theta*t3RSA_z
+
+  # manifest means (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+'
+
+mod_rsa2_fit <- sem(mod_rsa2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_rsa2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_rsa3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1RSA_z + 
+         1*t2RSA_z + 
+         1*t3RSA_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1RSA_z +
+         1*t2RSA_z +
+         2*t3RSA_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1RSA_z +
+         1*t2RSA_z +
+         4*t3RSA_z
+
+#manifest variances to be same over time
+t1RSA_z ~~ start(1)*theta*t1RSA_z
+t2RSA_z ~~ theta*t2RSA_z
+t3RSA_z ~~ theta*t3RSA_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1RSA_z ~ 0*1
+t2RSA_z ~ 0*1
+t3RSA_z ~ 0*1
+'
+mod_rsa3_fit <- sem(mod_rsa3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_rsa3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_rsa_fit, mod_rsa3_fit)
+```
+
+# Growth models for testosterone
+```{r testosterone models}
+#Testosterone
+#no growth
+mod_testo_z <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1testo_z
+      eta_1 =~ 1*t2testo_z
+      eta_1 =~ 1*t3testo_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1testo_z ~~ theta*t1testo_z
+      t2testo_z ~~ theta*t2testo_z
+      t3testo_z ~~ theta*t3testo_z
+
+  # manifest means (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+
+' 
+mod_testo_z_fit <- sem(mod_testo_z, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml"                  )
+summary(mod_testo_z_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_testo_z2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1testo_z
+      eta_1 =~ 1*t2testo_z
+      eta_1 =~ 1*t3testo_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1testo_z
+      eta_2 =~ 1*t2testo_z
+      eta_2 =~ 2*t3testo_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1testo_z ~~ theta*t1testo_z
+      t2testo_z ~~ theta*t2testo_z
+      t3testo_z ~~ theta*t3testo_z
+
+  # manifest means (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+'
+
+mod_testo_z2_fit <- sem(mod_testo_z2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_testo_z2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_testo_z3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1testo_z + 
+         1*t2testo_z + 
+         1*t3testo_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1testo_z +
+         1*t2testo_z +
+         2*t3testo_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1testo_z +
+         1*t2testo_z +
+         4*t3testo_z
+
+#manifest variances to be same over time
+t1testo_z ~~ start(1)*theta*t1testo_z
+t2testo_z ~~ theta*t2testo_z
+t3testo_z ~~ theta*t3testo_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1testo_z ~ 0*1
+t2testo_z ~ 0*1
+t3testo_z ~ 0*1
+'
+mod_testo_z3_fit <- sem(mod_testo_z3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_testo_z3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_testo_z_fit, mod_testo_z2_fit)
+```
+
+# Growth models for C-reactive protein
+```{r CRP models}
+#CRP
+#no growth
+mod_crp_z <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1crp_z
+      eta_1 =~ 1*t2crp_z
+      eta_1 =~ 1*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1crp_z ~~ theta*t1crp_z
+      t2crp_z ~~ theta*t2crp_z
+      t3crp_z ~~ theta*t3crp_z
+
+  # manifest means (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+mod_crp_z_fit <- sem(mod_crp_z, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_crp_z_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_crp_z2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1crp_z
+      eta_1 =~ 1*t2crp_z
+      eta_1 =~ 1*t3crp_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1crp_z
+      eta_2 =~ 1*t2crp_z
+      eta_2 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1crp_z ~~ theta*t1crp_z
+      t2crp_z ~~ theta*t2crp_z
+      t3crp_z ~~ theta*t3crp_z
+
+  # manifest means (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+'
+
+mod_crp_z2_fit <- sem(mod_crp_z2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_crp_z2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_crp_z3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1crp_z + 
+         1*t2crp_z + 
+         1*t3crp_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1crp_z +
+         1*t2crp_z +
+         2*t3crp_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1crp_z +
+         1*t2crp_z +
+         4*t3crp_z
+
+#manifest variances to be same over time
+t1crp_z ~~ start(1)*theta*t1crp_z
+t2crp_z ~~ theta*t2crp_z
+t3crp_z ~~ theta*t3crp_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1crp_z ~ 0*1
+t2crp_z ~ 0*1
+t3crp_z ~ 0*1
+'
+mod_crp_z3_fit <- sem(mod_crp_z3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_crp_z3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_crp_z_fit, mod_crp_z2_fit)
+```
+
+# Growth models for IgA, DHEA-S, cortisol 
+The models for IgA, DHEA-S and cortisol with growth factors are all miss-specified. Therefore, only one biomarker is shown here (IgA), to examine the other biomarkers find and replace can be used. 
+```{r miss-specified}
+#iga, dheas, cortisol
+#no growth
+mod_iga_z <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1iga_z
+      eta_1 =~ 1*t2iga_z
+      eta_1 =~ 1*t3iga_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1iga_z ~~ theta*t1iga_z
+      t2iga_z ~~ theta*t2iga_z
+      t3iga_z ~~ theta*t3iga_z
+
+  # manifest means (fixed at zero)
+      t1iga_z ~ 0*1
+      t2iga_z ~ 0*1
+      t3iga_z ~ 0*1
+
+' 
+mod_iga_z_fit <- sem(mod_iga_z, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_iga_z_fit, fit.measures=TRUE, standardized=TRUE)
+
+#linear growth
+mod_iga_z2 <- '
+  # latent variable definitions
+      #intercept (note intercept is a reserved term)
+      eta_1 =~ 1*t1iga_z
+      eta_1 =~ 1*t2iga_z
+      eta_1 =~ 1*t3iga_z
+      
+      #linear slope 
+      eta_2 =~ 0*t1iga_z
+      eta_2 =~ 1*t2iga_z
+      eta_2 =~ 2*t3iga_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+
+  # covariances among factors 
+      eta_1 ~~ eta_2
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1iga_z ~~ theta*t1iga_z
+      t2iga_z ~~ theta*t2iga_z
+      t3iga_z ~~ theta*t3iga_z
+
+  # manifest means (fixed at zero)
+      t1iga_z ~ 0*1
+      t2iga_z ~ 0*1
+      t3iga_z ~ 0*1
+'
+
+mod_iga_z2_fit <- sem(mod_iga_z2, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_iga_z2_fit, fit.measures=TRUE, standardized=TRUE)
+
+#quadratic growth
+mod_iga_z3 <- '
+#intercept factor loadings
+eta_1 =~ 1*t1iga_z + 
+         1*t2iga_z + 
+         1*t3iga_z 
+
+#linear change factor loadings
+eta_2 =~ 0*t1iga_z +
+         1*t2iga_z +
+         2*t3iga_z
+
+#quadratic change factor loadings
+eta_3 =~ 0*t1iga_z +
+         1*t2iga_z +
+         4*t3iga_z
+
+#manifest variances to be same over time
+t1iga_z ~~ start(1)*theta*t1iga_z
+t2iga_z ~~ theta*t2iga_z
+t3iga_z ~~ theta*t3iga_z
+
+#latent variances
+eta_1 ~~ eta_1
+eta_2 ~~ eta_2
+eta_3 ~~ 0*eta_3
+
+#latent covariances
+eta_1 ~~ eta_2
+eta_1 ~~ 0*eta_3
+eta_2 ~~ 0*eta_3
+
+#latent means
+eta_1 ~ start(0)*1
+eta_2 ~ start(0)*1
+eta_3 ~ start(0)*1
+
+#manifest means fixed to 0
+t1iga_z ~ 0*1
+t2iga_z ~ 0*1
+t3iga_z ~ 0*1
+'
+mod_iga_z3_fit <- sem(mod_iga_z3, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_iga_z3_fit, fit.measures=TRUE, standardized=TRUE)
+anova(mod_iga_z_fit, mod_iga_z2_fit)
+```
+
+# Biomarker intercept models with baseline burnout
+These models are the biomarker growth models (intercept only) from above with baseline burnout worked in. Only the biomarkers with miss-specification when adding the slope factor are used here (IgA, DHEA-S, Cortisol). Only RSA is used here, because it performs best in the growth models above.
+
+# IgA & RSA
+```{r}
+mod_iga_RSAb <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1iga_z
+      eta_1 =~ 1*t2iga_z
+      eta_1 =~ 1*t3iga_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1iga_z ~~ theta*t1iga_z
+      t2iga_z ~~ theta*t2iga_z
+      t3iga_z ~~ theta*t3iga_z
+
+  # manifest means (fixed at zero)
+      t1iga_z ~ 0*1
+      t2iga_z ~ 0*1
+      t3iga_z ~ 0*1
+      
+  #Time invariant covariate 
+  #regression of time-invariant covariate on intercept and slope factors
+        eta_1~t1RSA_z
+
+  #variance of covariate
+        t1RSA_z ~~ t1RSA_z
+
+  #means of covariate (freely estimated)
+        t1RSA_z ~ 1
+
+' 
+mod_iga_RSAb_fit <- sem(mod_iga_RSAb, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_iga_RSAb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# DHEA-S & RSA
+```{r}
+mod_dheas_RSAb <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1dheas_z
+      eta_1 =~ 1*t2dheas_z
+      eta_1 =~ 1*t3dheas_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1dheas_z ~~ theta*t1dheas_z
+      t2dheas_z ~~ theta*t2dheas_z
+      t3dheas_z ~~ theta*t3dheas_z
+
+  # manifest means (fixed at zero)
+      t1dheas_z ~ 0*1
+      t2dheas_z ~ 0*1
+      t3dheas_z ~ 0*1
+      
+  #Time invariant covariate 
+  #regression of time-invariant covariate on intercept and slope factors
+        eta_1~t1RSA_z
+
+  #variance of covariate
+        t1RSA_z ~~ t1RSA_z
+
+  #means of covariate (freely estimated)
+        t1RSA_z ~ 1
+
+' 
+mod_dheas_RSAb_fit <- sem(mod_dheas_RSAb, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_dheas_RSAb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Cortisol & RSA
+```{r}
+mod_cort_RSAb <- 
+' 
+  # latent variable definitions
+      #intercept
+      eta_1 =~ 1*t1cort_z
+      eta_1 =~ 1*t2cort_z
+      eta_1 =~ 1*t3cort_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+
+  # covariances among factors 
+      #none (only 1 factor)
+
+  # factor means 
+      eta_1 ~ start(0)*1
+
+  # manifest variances (made equivalent by naming theta)
+      t1cort_z ~~ theta*t1cort_z
+      t2cort_z ~~ theta*t2cort_z
+      t3cort_z ~~ theta*t3cort_z
+
+  # manifest means (fixed at zero)
+      t1cort_z ~ 0*1
+      t2cort_z ~ 0*1
+      t3cort_z ~ 0*1
+      
+  #Time invariant covariate 
+  #regression of time-invariant covariate on intercept and slope factors
+        eta_1~t1RSA_z
+
+  #variance of covariate
+        t1RSA_z ~~ t1RSA_z
+
+  #means of covariate (freely estimated)
+        t1RSA_z ~ 1
+
+' 
+mod_cort_RSAb_fit <- sem(mod_cort_RSAb, 
+                  data = datz,
+                  meanstructure = TRUE,
+                  estimator = "ML",
+                  missing = "fiml")
+summary(mod_cort_RSAb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Biomarker growth models (including slope) with baseline burnout
+These models are similar to the growth models + baseline above, but now include the slope factor in the growth model in addition to the intercept. Only tesosterone and CRP are used as biomarkers here, because they performed best in the linear growth models (did not miss-specify). Total burnout and the burnout dimensions are used for burnout. 
+
+# Testosterone & total burnout 
+```{r}
+#linear growth
+mod_tb_testob <- '
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1TB_z
+      eta_4~t1TB_z
+
+  #variance of TIV covariates
+      t1TB_z ~~ t1TB_z
+
+  #means of TIV covariates (freely estimated)
+      t1TB_z ~ 1
+' 
+
+mod_tb_testob_fit <- sem(mod_tb_testob, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb_testob_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Testosterone & exhaustion
+```{r}
+#linear growth
+mod_EXH_testob <- '
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1EXH_z
+      eta_4~t1EXH_z
+
+  #variance of TB covariates
+      t1EXH_z ~~ t1EXH_z
+
+  #means of TIV covariates (freely estimated)
+      t1EXH_z ~ 1
+' 
+
+mod_EXH_testob_fit <- sem(mod_EXH_testob, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_EXH_testob_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Testosterone & devaluation
+```{r}
+#linear growth
+mod_DEV_testob <- '
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1DEV_z
+      eta_4~t1DEV_z
+
+  #variance of TB covariates
+      t1DEV_z ~~ t1DEV_z
+
+  #means of TIV covariates (freely estimated)
+      t1DEV_z ~ 1
+' 
+
+mod_DEV_testob_fit <- sem(mod_DEV_testob, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_DEV_testob_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Testosterone & RSA
+```{r}
+#linear growth
+mod_RSA_testob <- '
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1RSA_z
+      eta_4~t1RSA_z
+
+  #variance of TB covariates
+      t1RSA_z ~~ t1RSA_z
+
+  #means of TIV covariates (freely estimated)
+      t1RSA_z ~ 1
+' 
+
+mod_RSA_testob_fit <- sem(mod_RSA_testob, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_testob_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & total burnout
+```{r}
+#linear growth
+mod_TB_crpb <- '
+      #intercept for CRP
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1TB_z
+      eta_4~t1TB_z
+
+  #variance of TB covariates
+      t1TB_z ~~ t1TB_z
+
+  #means of TIV covariates (freely estimated)
+      t1TB_z ~ 1
+' 
+
+mod_TB_crpb_fit <- sem(mod_TB_crpb, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_TB_crpb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & exhaustion
+```{r}
+#linear growth
+mod_EXH_crpb <- '
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1EXH_z
+      eta_4~t1EXH_z
+
+  #variance of TB covariates
+      t1EXH_z ~~ t1EXH_z
+
+  #means of TIV covariates (freely estimated)
+      t1EXH_z ~ 1
+' 
+
+mod_EXH_crpb_fit <- sem(mod_EXH_crpb, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_EXH_crpb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & devaluation
+```{r}
+#linear growth
+mod_DEV_crpb <- '
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1DEV_z
+      eta_4~t1DEV_z
+
+  #variance of TB covariates
+      t1DEV_z ~~ t1DEV_z
+
+  #means of TIV covariates (freely estimated)
+      t1DEV_z ~ 1
+' 
+
+mod_DEV_crpb_fit <- sem(mod_DEV_crpb, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_DEV_crpb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & RSA
+```{r}
+#linear growth
+mod_RSA_crpb <- '
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+  #Time invariant covaraite
+  #regression of time-invariant covariate on intercept and slope factors
+      eta_3~t1RSA_z
+      eta_4~t1RSA_z
+
+  #variance of TB covariates
+      t1RSA_z ~~ t1RSA_z
+
+  #means of TIV covariates (freely estimated)
+      t1RSA_z ~ 1
+' 
+
+mod_RSA_crpb_fit <- sem(mod_RSA_crpb, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_crpb_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Growth models with intercepts for burnout and biomarkers only (then assessing covariance of intercepts)
+In these models, burnout is not used as a baseline but as an intercept factor. Similarily, the biomarker only gets an intercept factor, not a slope. Again, these models are only used for those biomarkers that miss-specified when adding a slope factor (IgA, DHEA-S, Cortisol). Only RSA is used as it performed best in other growth models.
+
+# IgA & RSA
+```{r}
+mod_RSA_igai <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #intercept for iga
+      eta_3 =~ 1*t1iga_z
+      eta_3 =~ 1*t2iga_z
+      eta_3 =~ 1*t3iga_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+
+  # covariances among factors 
+      eta_1 ~~ eta_3
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+
+  # manifest variances for RSA (made equivalent by naming theta1)
+      t1RSA_z ~~ theta1*t1RSA_z
+      t2RSA_z ~~ theta1*t2RSA_z
+      t3RSA_z ~~ theta1*t3RSA_z
+      
+  # manifest variances for iga (made equivalent by naming theta2)
+      t1iga_z ~~ theta2*t1iga_z
+      t2iga_z ~~ theta2*t2iga_z
+      t3iga_z ~~ theta2*t3iga_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1RSA_z ~~ theta12*t1iga_z
+      t2RSA_z ~~ theta12*t2iga_z
+      t3RSA_z ~~ theta12*t3iga_z
+      
+  # manifest means for RSA (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+  # manifest means for iga (fixed at zero)
+      t1iga_z ~ 0*1
+      t2iga_z ~ 0*1
+      t3iga_z ~ 0*1
+
+' 
+
+mod_RSA_igai_fit <- sem(mod_RSA_igai, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_igai_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# DHEA-S & RSA
+```{r}
+mod_RSA_dheasi <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #intercept for dheas
+      eta_3 =~ 1*t1dheas_z
+      eta_3 =~ 1*t2dheas_z
+      eta_3 =~ 1*t3dheas_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+
+  # covariances among factors 
+      eta_1 ~~ eta_3
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+
+  # manifest variances for RSA (made equivalent by naming theta1)
+      t1RSA_z ~~ theta1*t1RSA_z
+      t2RSA_z ~~ theta1*t2RSA_z
+      t3RSA_z ~~ theta1*t3RSA_z
+      
+  # manifest variances for dheas (made equivalent by naming theta2)
+      t1dheas_z ~~ theta2*t1dheas_z
+      t2dheas_z ~~ theta2*t2dheas_z
+      t3dheas_z ~~ theta2*t3dheas_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1RSA_z ~~ theta12*t1dheas_z
+      t2RSA_z ~~ theta12*t2dheas_z
+      t3RSA_z ~~ theta12*t3dheas_z
+      
+  # manifest means for RSA (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+  # manifest means for dheas (fixed at zero)
+      t1dheas_z ~ 0*1
+      t2dheas_z ~ 0*1
+      t3dheas_z ~ 0*1
+
+' 
+
+mod_RSA_dheasi_fit <- sem(mod_RSA_dheasi, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_dheasi_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Cortisol & RSA
+```{r}
+mod_RSA_corti <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #intercept for cort
+      eta_3 =~ 1*t1cort_z
+      eta_3 =~ 1*t2cort_z
+      eta_3 =~ 1*t3cort_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+
+  # covariances among factors 
+      eta_1 ~~ eta_3
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+
+  # manifest variances for RSA (made equivalent by naming theta1)
+      t1RSA_z ~~ theta1*t1RSA_z
+      t2RSA_z ~~ theta1*t2RSA_z
+      t3RSA_z ~~ theta1*t3RSA_z
+      
+  # manifest variances for cort (made equivalent by naming theta2)
+      t1cort_z ~~ theta2*t1cort_z
+      t2cort_z ~~ theta2*t2cort_z
+      t3cort_z ~~ theta2*t3cort_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1RSA_z ~~ theta12*t1cort_z
+      t2RSA_z ~~ theta12*t2cort_z
+      t3RSA_z ~~ theta12*t3cort_z
+      
+  # manifest means for RSA (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+  # manifest means for cort (fixed at zero)
+      t1cort_z ~ 0*1
+      t2cort_z ~ 0*1
+      t3cort_z ~ 0*1
+
+' 
+
+mod_RSA_corti_fit <- sem(mod_RSA_corti, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_corti_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Parallel process models
+These models use an intercept for burnout and an intercept and linear slope for the biomarker. These models are used for those biomarkers that showed a linear slope in the single growth factor models (testosterone, CRP). Total burnout and the burnout dimensions are used in these models.
+
+# Testosterone & total burnout
+```{r}
+#linear growth
+mod_tb_testo1 <- '
+      #intercept for total burnout
+      eta_1 =~ 1*t1TB_z
+      eta_1 =~ 1*t2TB_z
+      eta_1 =~ 1*t3TB_z
+      
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for tb (made equivalent by naming theta1)
+      t1TB_z ~~ theta1*t1TB_z
+      t2TB_z ~~ theta1*t2TB_z
+      t3TB_z ~~ theta1*t3TB_z
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1TB_z ~~ theta12*t1testo_z
+      t2TB_z ~~ theta12*t2testo_z
+      t3TB_z ~~ theta12*t3testo_z
+      
+  # manifest means for tb (fixed at zero)
+      t1TB_z ~ 0*1
+      t2TB_z ~ 0*1
+      t3TB_z ~ 0*1
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+
+' 
+
+mod_tb_testo1_fit <- sem(mod_tb_testo1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb_testo1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Testosterone & exhaustion
+```{r}
+#linear growth
+mod_EXH_testo1 <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1EXH_z
+      eta_1 =~ 1*t2EXH_z
+      eta_1 =~ 1*t3EXH_z
+      
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for EXH (made equivalent by naming theta1)
+      t1EXH_z ~~ theta1*t1EXH_z
+      t2EXH_z ~~ theta1*t2EXH_z
+      t3EXH_z ~~ theta1*t3EXH_z
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1EXH_z ~~ theta12*t1testo_z
+      t2EXH_z ~~ theta12*t2testo_z
+      t3EXH_z ~~ theta12*t3testo_z
+      
+  # manifest means for EXH (fixed at zero)
+      t1EXH_z ~ 0*1
+      t2EXH_z ~ 0*1
+      t3EXH_z ~ 0*1
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+
+' 
+
+mod_EXH_testo1_fit <- sem(mod_EXH_testo1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_EXH_testo1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Testosterone & devaluation (miss-specified)
+Model has been removed due to miss-specification. 
+
+# Testosterone & RSA
+```{r}
+#linear growth
+mod_RSA_testo1 <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #intercept for testo
+      eta_3 =~ 1*t1testo_z
+      eta_3 =~ 1*t2testo_z
+      eta_3 =~ 1*t3testo_z
+
+      #linear slope for testo
+      eta_4 =~ 0*t1testo_z
+      eta_4 =~ 1*t2testo_z
+      eta_4 =~ 2*t3testo_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for RSA (made equivalent by naming theta1)
+      t1RSA_z ~~ theta1*t1RSA_z
+      t2RSA_z ~~ theta1*t2RSA_z
+      t3RSA_z ~~ theta1*t3RSA_z
+      
+  # manifest variances for testo (made equivalent by naming theta2)
+      t1testo_z ~~ theta2*t1testo_z
+      t2testo_z ~~ theta2*t2testo_z
+      t3testo_z ~~ theta2*t3testo_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1RSA_z ~~ theta12*t1testo_z
+      t2RSA_z ~~ theta12*t2testo_z
+      t3RSA_z ~~ theta12*t3testo_z
+      
+  # manifest means for RSA (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+  # manifest means for testo (fixed at zero)
+      t1testo_z ~ 0*1
+      t2testo_z ~ 0*1
+      t3testo_z ~ 0*1
+
+' 
+
+mod_RSA_testo1_fit <- sem(mod_RSA_testo1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_testo1_fit, fit.measures=TRUE, standardized=TRUE)
+standardizedsolution(mod_RSA_testo1_fit)
+```
+
+# CRP & total burnout
+```{r}
+#linear growth
+mod_tb_crp1 <- '
+      #intercept for total burnout
+      eta_1 =~ 1*t1TB_z
+      eta_1 =~ 1*t2TB_z
+      eta_1 =~ 1*t3TB_z
+      
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for tb (made equivalent by naming theta1)
+      t1TB_z ~~ theta1*t1TB_z
+      t2TB_z ~~ theta1*t2TB_z
+      t3TB_z ~~ theta1*t3TB_z
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1TB_z ~~ theta12*t1crp_z
+      t2TB_z ~~ theta12*t2crp_z
+      t3TB_z ~~ theta12*t3crp_z
+      
+  # manifest means for tb (fixed at zero)
+      t1TB_z ~ 0*1
+      t2TB_z ~ 0*1
+      t3TB_z ~ 0*1
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+
+mod_tb_crp1_fit <- sem(mod_tb_crp1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb_crp1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & exhaustion
+```{r}
+#linear growth
+mod_EXH_crp1 <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1EXH_z
+      eta_1 =~ 1*t2EXH_z
+      eta_1 =~ 1*t3EXH_z
+      
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for EXH (made equivalent by naming theta1)
+      t1EXH_z ~~ theta1*t1EXH_z
+      t2EXH_z ~~ theta1*t2EXH_z
+      t3EXH_z ~~ theta1*t3EXH_z
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1EXH_z ~~ theta12*t1crp_z
+      t2EXH_z ~~ theta12*t2crp_z
+      t3EXH_z ~~ theta12*t3crp_z
+      
+  # manifest means for EXH (fixed at zero)
+      t1EXH_z ~ 0*1
+      t2EXH_z ~ 0*1
+      t3EXH_z ~ 0*1
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+
+mod_EXH_crp1_fit <- sem(mod_EXH_crp1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_EXH_crp1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & devaluation
+```{r}
+#linear growth
+mod_DEV_crp1 <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1DEV_z
+      eta_1 =~ 1*t2DEV_z
+      eta_1 =~ 1*t3DEV_z
+      
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for DEV (made equivalent by naming theta1)
+      t1DEV_z ~~ theta1*t1DEV_z
+      t2DEV_z ~~ theta1*t2DEV_z
+      t3DEV_z ~~ theta1*t3DEV_z
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1DEV_z ~~ theta12*t1crp_z
+      t2DEV_z ~~ theta12*t2crp_z
+      t3DEV_z ~~ theta12*t3crp_z
+      
+  # manifest means for DEV (fixed at zero)
+      t1DEV_z ~ 0*1
+      t2DEV_z ~ 0*1
+      t3DEV_z ~ 0*1
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+
+mod_DEV_crp1_fit <- sem(mod_DEV_crp1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_DEV_crp1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# CRP & RSA
+```{r}
+#linear growth
+mod_RSA_crp1 <- '
+      #intercept for burnout
+      eta_1 =~ 1*t1RSA_z
+      eta_1 =~ 1*t2RSA_z
+      eta_1 =~ 1*t3RSA_z
+      
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for RSA (made equivalent by naming theta1)
+      t1RSA_z ~~ theta1*t1RSA_z
+      t2RSA_z ~~ theta1*t2RSA_z
+      t3RSA_z ~~ theta1*t3RSA_z
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1RSA_z ~~ theta12*t1crp_z
+      t2RSA_z ~~ theta12*t2crp_z
+      t3RSA_z ~~ theta12*t3crp_z
+      
+  # manifest means for RSA (fixed at zero)
+      t1RSA_z ~ 0*1
+      t2RSA_z ~ 0*1
+      t3RSA_z ~ 0*1
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+
+mod_RSA_crp1_fit <- sem(mod_RSA_crp1, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_RSA_crp1_fit, fit.measures=TRUE, standardized=TRUE)
+```
+
+# Full parallel process model
+This model creates intercepts and slopes for both burnout and biomarkers. Only the model for CRP and total burnout is shown here as these models miss-specify (covariance matrix of latents not positive definite). 
+
+# CRP & total burnout
+```{r}
+#linear growth
+mod_tb_crp <- '
+      #intercept for total burnout
+      eta_1 =~ 1*t1TB_z
+      eta_1 =~ 1*t2TB_z
+      eta_1 =~ 1*t3TB_z
+
+      #linear slope for total burnout
+      eta_2 =~ 0*t1TB_z
+      eta_2 =~ 1*t2TB_z
+      eta_2 =~ 2*t3TB_z
+      
+      #intercept for crp
+      eta_3 =~ 1*t1crp_z
+      eta_3 =~ 1*t2crp_z
+      eta_3 =~ 1*t3crp_z
+
+      #linear slope for crp
+      eta_4 =~ 0*t1crp_z
+      eta_4 =~ 1*t2crp_z
+      eta_4 =~ 2*t3crp_z
+
+  # factor variances
+      eta_1 ~~ eta_1
+      eta_2 ~~ eta_2
+      eta_3 ~~ eta_3
+      eta_4 ~~ eta_4
+
+  # covariances among factors 
+      eta_1 ~~ eta_2 + eta_3 + eta_4
+      eta_2 ~~ eta_3 + eta_4
+      eta_3 ~~ eta_4 
+
+  # factor means 
+      eta_1 ~ start(0)*1
+      eta_2 ~ start(0)*1
+      eta_3 ~ start(0)*1
+      eta_4 ~ start(0)*1
+
+  # manifest variances for tb (made equivalent by naming theta1)
+      t1TB_z ~~ theta1*t1TB_z
+      t2TB_z ~~ theta1*t2TB_z
+      t3TB_z ~~ theta1*t3TB_z
+      
+  # manifest variances for crp (made equivalent by naming theta2)
+      t1crp_z ~~ theta2*t1crp_z
+      t2crp_z ~~ theta2*t2crp_z
+      t3crp_z ~~ theta2*t3crp_z
+      
+  # residual covariances (made equivalent by naming theta12)
+      t1TB_z ~~ theta12*t1crp_z
+      t2TB_z ~~ theta12*t2crp_z
+      t3TB_z ~~ theta12*t3crp_z
+      
+  # manifest means for tb (fixed at zero)
+      t1TB_z ~ 0*1
+      t2TB_z ~ 0*1
+      t3TB_z ~ 0*1
+
+  # manifest means for crp (fixed at zero)
+      t1crp_z ~ 0*1
+      t2crp_z ~ 0*1
+      t3crp_z ~ 0*1
+
+' 
+
+mod_tb_crp_fit <- sem(mod_tb_crp, 
+                   data = datz,
+                   meanstructure = TRUE,
+                   estimator = "ML",
+                   missing = "fiml")
+summary(mod_tb_crp_fit, fit.measures=TRUE, standardized=TRUE)
+```

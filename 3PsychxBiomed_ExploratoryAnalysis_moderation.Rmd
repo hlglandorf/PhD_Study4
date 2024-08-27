@@ -1,0 +1,2233 @@
+---
+title: "Psych Biomed Exploratory Analysis"
+author: "H.L. Glandorf"
+date: "2024-04-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Psych x Biomed Exploratory Analysis (Part 1)
+This code file carries out part of the exploratory analyses for this study (part 1). 
+
+These are the objectives:
+- data preparation (e.g., scale the data, create long format, clean data)
+- moderation analyses with three approaches
+-- lm moderation (using wave 1 and 2 only)
+-- lmer moderation (maximum random effects structure)
+-- lavaan moderation (random intercept only)
+
+# Load libraries
+```{r cars}
+library(lavaan)
+library(readxl)
+library(broom)
+library(tidyverse)
+library(ggplot2)
+library(semTools)
+library(lme4)
+```
+
+# Load data
+```{r data loading}
+dat <- read_csv("redframe.csv")
+```
+
+# Scaling
+```{r scaling and outlier screening}
+##add in time difference between time of saliva sample and time eaten
+dat <- dat %>% mutate(t1timediff = t1time-t1timeeat,
+               t2timediff = t2time-t2timeeat,
+               t3timediff = t3time-t3timeeat)
+##calculating z-scores
+datz <- dat %>% 
+  mutate(t1TB_z = scale(t1TB), 
+         t1EXH_z = scale(t1EXH),
+         t1DEV_z = scale(t1DEV),
+         t1RSA_z = scale(t1RSA),
+         t1PS_z = scale(t1PS),
+         t1DS_z = scale(t1DS),
+         t1PSQI_z = scale(t1PSQI),
+         t1ISI_z = scale(t1ISI),
+         t1iga_z = scale(t1iga_flow),
+         t1testo_z = scale(t1test_conc),
+         t1dheas_z = scale(t1dheas_flow),
+         t1cort_z = scale(t1cort_conc),
+         t1crp_z = scale(t1crp_conc),
+         t1timediff_z = scale(t1timediff),
+         t2TB_z = scale(t2TB), 
+         t2EXH_z = scale(t2EXH),
+         t2DEV_z = scale(t2DEV),
+         t2RSA_z = scale(t2RSA),
+         t2PS_z = scale(t2PS),
+         t2DS_z = scale(t2DS),
+         t2PSQI_z = scale(t2PSQI),
+         t2ISI_z = scale(t2ISI),
+         t2iga_z = scale(t2iga_flow),
+         t2testo_z = scale(t2test_conc),
+         t2dheas_z = scale(t2dheas_flow),
+         t2cort_z = scale(t2cort_conc),
+         t2crp_z = scale(t2crp_conc),
+         t2timediff_z = scale(t2timediff),
+         t3TB_z = scale(t3TB), 
+         t3EXH_z = scale(t3EXH),
+         t3DEV_z = scale(t3DEV),
+         t3RSA_z = scale(t3RSA),
+         t3PS_z = scale(t3PS),
+         t3DS_z = scale(t3DS),
+         t3PSQI_z = scale(t3PSQI),
+         t3ISI_z = scale(t3ISI),
+         t3iga_z = scale(t3iga_flow),
+         t3testo_z = scale(t3test_conc),
+         t3dheas_z = scale(t3dheas_flow),
+         t3cort_z = scale(t3cort_conc),
+         t3crp_z = scale(t3crp_conc),
+         t3timediff_z = scale(t3timediff))
+
+##replacing extremes with NAs
+#wave 1
+datz$t1TB <- replace(datz$t1TB, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH <- replace(datz$t1EXH, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV <- replace(datz$t1DEV, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA <- replace(datz$t1RSA, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS <- replace(datz$t1PS, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS <- replace(datz$t1DS, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI <- replace(datz$t1PSQI, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI <- replace(datz$t1ISI, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_flow <- replace(datz$t1iga_flow, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1test_conc <- replace(datz$t1test_conc, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_flow <- replace(datz$t1dheas_flow, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_conc <- replace(datz$t1cort_conc, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_conc <- replace(datz$t1crp_conc, abs(datz$t1crp_z) > 3.29, NA)
+
+##wave1 for z-values
+datz$t1TB_z <- replace(datz$t1TB_z, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH_z <- replace(datz$t1EXH_z, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV_z <- replace(datz$t1DEV_z, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA_z <- replace(datz$t1RSA_z, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS_z <- replace(datz$t1PS_z, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS_z <- replace(datz$t1DS_z, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI_z <- replace(datz$t1PSQI_z, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI_z <- replace(datz$t1ISI_z, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_z <- replace(datz$t1iga_z, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1testo_z <- replace(datz$t1testo_z, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_z <- replace(datz$t1dheas_z, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_z <- replace(datz$t1cort_z, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_z <- replace(datz$t1crp_z, abs(datz$t1crp_z) > 3.29, NA)
+
+#wave 2
+datz$t2TB <- replace(datz$t2TB, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH <- replace(datz$t2EXH, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV <- replace(datz$t2DEV, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA <- replace(datz$t2RSA, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS <- replace(datz$t2PS, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS <- replace(datz$t2DS, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI <- replace(datz$t2PSQI, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI <- replace(datz$t2ISI, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_flow <- replace(datz$t2iga_flow, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2test_conc <- replace(datz$t2test_conc, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_flow <- replace(datz$t2dheas_flow, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_conc <- replace(datz$t2cort_conc, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_conc <- replace(datz$t2crp_conc, abs(datz$t2crp_z) > 3.29, NA)
+
+##wave2 for z-values
+datz$t2TB_z <- replace(datz$t2TB_z, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH_z <- replace(datz$t2EXH_z, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV_z <- replace(datz$t2DEV_z, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA_z <- replace(datz$t2RSA_z, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS_z <- replace(datz$t2PS_z, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS_z <- replace(datz$t2DS_z, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI_z <- replace(datz$t2PSQI_z, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI_z <- replace(datz$t2ISI_z, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_z <- replace(datz$t2iga_z, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2testo_z <- replace(datz$t2testo_z, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_z <- replace(datz$t2dheas_z, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_z <- replace(datz$t2cort_z, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_z <- replace(datz$t2crp_z, abs(datz$t2crp_z) > 3.29, NA)
+
+#wave 3
+datz$t3TB <- replace(datz$t3TB, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH <- replace(datz$t3EXH, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV <- replace(datz$t3DEV, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA <- replace(datz$t3RSA, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS <- replace(datz$t3PS, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS <- replace(datz$t3DS, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI <- replace(datz$t3PSQI, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI <- replace(datz$t3ISI, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_flow <- replace(datz$t3iga_flow, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3test_conc <- replace(datz$t3test_conc, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_flow <- replace(datz$t3dheas_flow, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_conc <- replace(datz$t3cort_conc, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_conc <- replace(datz$t3crp_conc, abs(datz$t3crp_z) > 3.29, NA)
+
+##wave3 for z-values
+datz$t3TB_z <- replace(datz$t3TB_z, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH_z <- replace(datz$t3EXH_z, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV_z <- replace(datz$t3DEV_z, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA_z <- replace(datz$t3RSA_z, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS_z <- replace(datz$t3PS_z, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS_z <- replace(datz$t3DS_z, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI_z <- replace(datz$t3PSQI_z, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI_z <- replace(datz$t3ISI_z, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_z <- replace(datz$t3iga_z, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3testo_z <- replace(datz$t3testo_z, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_z <- replace(datz$t3dheas_z, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_z <- replace(datz$t3cort_z, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_z <- replace(datz$t3crp_z, abs(datz$t3crp_z) > 3.29, NA)
+```
+
+# Create long format
+```{r reformating to long format and cleaning}
+#total burnout
+datl_tb <- datz %>% 
+  select(sample_id, t1TB, t2TB, t3TB) %>%
+  pivot_longer(cols = c(t1TB, t2TB, t3TB),
+                               names_to = "timepoint",
+                               values_to = "TB") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB" ~"t1", 
+                         timepoint =="t2TB" ~ "t2",
+                         timepoint =="t3TB" ~ "t3"))
+datl_tbz <- datz %>% 
+  select(sample_id, t1TB_z, t2TB_z, t3TB_z) %>%
+  pivot_longer(cols = c(t1TB_z, t2TB_z, t3TB_z),
+                               names_to = "timepoint",
+                               values_to = "TBz") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB_z" ~"t1", 
+                         timepoint =="t2TB_z" ~ "t2",
+                         timepoint =="t3TB_z" ~ "t3"))
+#exhaustion
+datl_exh <- datz %>% 
+  select(sample_id, t1EXH, t2EXH, t3EXH) %>%
+  pivot_longer(cols = c(t1EXH, t2EXH, t3EXH),
+                               names_to = "timepoint",
+                               values_to = "EXH") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH" ~"t1", 
+                         timepoint =="t2EXH" ~ "t2",
+                         timepoint =="t3EXH" ~ "t3"))
+datl_exhz <- datz %>% 
+  select(sample_id, t1EXH_z, t2EXH_z, t3EXH_z) %>%
+  pivot_longer(cols = c(t1EXH_z, t2EXH_z, t3EXH_z),
+                               names_to = "timepoint",
+                               values_to = "EXHz") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH_z" ~"t1", 
+                         timepoint =="t2EXH_z" ~ "t2",
+                         timepoint =="t3EXH_z" ~ "t3"))
+#devaluation
+datl_dev <- datz %>% 
+  select(sample_id, t1DEV, t2DEV, t3DEV) %>%
+  pivot_longer(cols = c(t1DEV, t2DEV, t3DEV),
+                               names_to = "timepoint",
+                               values_to = "DEV") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV" ~"t1", 
+                         timepoint =="t2DEV" ~ "t2",
+                         timepoint =="t3DEV" ~ "t3"))
+datl_devz <- datz %>% 
+  select(sample_id, t1DEV_z, t2DEV_z, t3DEV_z) %>%
+  pivot_longer(cols = c(t1DEV_z, t2DEV_z, t3DEV_z),
+                               names_to = "timepoint",
+                               values_to = "DEVz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV_z" ~"t1", 
+                         timepoint =="t2DEV_z" ~ "t2",
+                         timepoint =="t3DEV_z" ~ "t3"))
+#rsa
+datl_rsa <- datz %>% 
+  select(sample_id, t1RSA, t2RSA, t3RSA) %>%
+  pivot_longer(cols = c(t1RSA, t2RSA, t3RSA),
+                               names_to = "timepoint",
+                               values_to = "RSA") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA" ~"t1", 
+                         timepoint =="t2RSA" ~ "t2",
+                         timepoint =="t3RSA" ~ "t3"))
+datl_rsaz <- datz %>% 
+  select(sample_id, t1RSA_z, t2RSA_z, t3RSA_z) %>%
+  pivot_longer(cols = c(t1RSA_z, t2RSA_z, t3RSA_z),
+                               names_to = "timepoint",
+                               values_to = "RSAz") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA_z" ~"t1", 
+                         timepoint =="t2RSA_z" ~ "t2",
+                         timepoint =="t3RSA_z" ~ "t3"))
+#DS
+datl_ds <- datz %>% 
+  select(sample_id, t1DS, t2DS, t3DS) %>%
+  pivot_longer(cols = c(t1DS, t2DS, t3DS),
+                               names_to = "timepoint",
+                               values_to = "DS") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS" ~"t1", 
+                         timepoint =="t2DS" ~ "t2",
+                         timepoint =="t3DS" ~ "t3"))
+datl_dsz <- datz %>% 
+  select(sample_id, t1DS_z, t2DS_z, t3DS_z) %>%
+  pivot_longer(cols = c(t1DS_z, t2DS_z, t3DS_z),
+                               names_to = "timepoint",
+                               values_to = "DSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS_z" ~"t1", 
+                         timepoint =="t2DS_z" ~ "t2",
+                         timepoint =="t3DS_z" ~ "t3"))
+#PS
+datl_ps <- datz %>% 
+  select(sample_id, t1PS, t2PS, t3PS) %>%
+  pivot_longer(cols = c(t1PS, t2PS, t3PS),
+                               names_to = "timepoint",
+                               values_to = "PS") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS" ~"t1", 
+                         timepoint =="t2PS" ~ "t2",
+                         timepoint =="t3PS" ~ "t3"))
+datl_psz <- datz %>% 
+  select(sample_id, t1PS_z, t2PS_z, t3PS_z) %>%
+  pivot_longer(cols = c(t1PS_z, t2PS_z, t3PS_z),
+                               names_to = "timepoint",
+                               values_to = "PSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS_z" ~"t1", 
+                         timepoint =="t2PS_z" ~ "t2",
+                         timepoint =="t3PS_z" ~ "t3"))
+#PSQI
+datl_psqi <- datz %>% 
+  select(sample_id, t1PSQI, t2PSQI, t3PSQI) %>%
+  pivot_longer(cols = c(t1PSQI, t2PSQI, t3PSQI),
+                               names_to = "timepoint",
+                               values_to = "PSQI") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI" ~"t1", 
+                         timepoint =="t2PSQI" ~ "t2",
+                         timepoint =="t3PSQI" ~ "t3"))
+datl_psqiz <- datz %>% 
+  select(sample_id, t1PSQI_z, t2PSQI_z, t3PSQI_z) %>%
+  pivot_longer(cols = c(t1PSQI_z, t2PSQI_z, t3PSQI_z),
+                               names_to = "timepoint",
+                               values_to = "PSQIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI_z" ~"t1", 
+                         timepoint =="t2PSQI_z" ~ "t2",
+                         timepoint =="t3PSQI_z" ~ "t3"))
+#ISI
+datl_isi <- datz %>% 
+  select(sample_id, t1ISI, t2ISI, t3ISI) %>%
+  pivot_longer(cols = c(t1ISI, t2ISI, t3ISI),
+                               names_to = "timepoint",
+                               values_to = "ISI") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI" ~"t1", 
+                         timepoint =="t2ISI" ~ "t2",
+                         timepoint =="t3ISI" ~ "t3"))
+datl_isiz <- datz %>% 
+  select(sample_id, t1ISI_z, t2ISI_z, t3ISI_z) %>%
+  pivot_longer(cols = c(t1ISI_z, t2ISI_z, t3ISI_z),
+                               names_to = "timepoint",
+                               values_to = "ISIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI_z" ~"t1", 
+                         timepoint =="t2ISI_z" ~ "t2",
+                         timepoint =="t3ISI_z" ~ "t3"))
+#iga flow
+datl_igaflow <- datz %>% 
+  select(sample_id, t1iga_flow, t2iga_flow, t3iga_flow) %>%
+  pivot_longer(cols = c(t1iga_flow, t2iga_flow, t3iga_flow),
+                               names_to = "timepoint",
+                               values_to = "iga_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_flow" ~"t1", 
+                         timepoint =="t2iga_flow" ~ "t2",
+                         timepoint =="t3iga_flow" ~ "t3"))
+datl_igafz <- datz %>% 
+  select(sample_id, t1iga_z, t2iga_z, t3iga_z) %>%
+  pivot_longer(cols = c(t1iga_z, t2iga_z, t3iga_z),
+                               names_to = "timepoint",
+                               values_to = "iga_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_z" ~"t1", 
+                         timepoint =="t2iga_z" ~ "t2",
+                         timepoint =="t3iga_z" ~ "t3"))
+#testosterone conc
+datl_testc <- datz %>% 
+  select(sample_id, t1test_conc, t2test_conc, t3test_conc) %>%
+  pivot_longer(cols = c(t1test_conc, t2test_conc, t3test_conc),
+                               names_to = "timepoint",
+                               values_to = "test_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1test_conc" ~"t1", 
+                         timepoint =="t2test_conc" ~ "t2",
+                         timepoint =="t3test_conc" ~ "t3"))
+datl_testcz <- datz %>% 
+  select(sample_id, t1testo_z, t2testo_z, t3testo_z) %>%
+  pivot_longer(cols = c(t1testo_z, t2testo_z, t3testo_z),
+                               names_to = "timepoint",
+                               values_to = "test_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1testo_z" ~"t1", 
+                         timepoint =="t2testo_z" ~ "t2",
+                         timepoint =="t3testo_z" ~ "t3"))
+#dheas flow
+datl_dheasf <- datz %>% 
+  select(sample_id, t1dheas_flow, t2dheas_flow, t3dheas_flow) %>%
+  pivot_longer(cols = c(t1dheas_flow, t2dheas_flow, t3dheas_flow),
+                               names_to = "timepoint",
+                               values_to = "dheas_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_flow" ~"t1", 
+                         timepoint =="t2dheas_flow" ~ "t2",
+                         timepoint =="t3dheas_flow" ~ "t3"))
+datl_dheasfz <- datz %>% 
+  select(sample_id, t1dheas_z, t2dheas_z, t3dheas_z) %>%
+  pivot_longer(cols = c(t1dheas_z, t2dheas_z, t3dheas_z),
+                               names_to = "timepoint",
+                               values_to = "dheas_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_z" ~"t1", 
+                         timepoint =="t2dheas_z" ~ "t2",
+                         timepoint =="t3dheas_z" ~ "t3"))
+#cort conc
+datl_cortc <- datz %>% 
+  select(sample_id, t1cort_conc, t2cort_conc, t3cort_conc) %>%
+  pivot_longer(cols = c(t1cort_conc, t2cort_conc, t3cort_conc),
+                               names_to = "timepoint",
+                               values_to = "cort_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_conc" ~"t1", 
+                         timepoint =="t2cort_conc" ~ "t2",
+                         timepoint =="t3cort_conc" ~ "t3"))
+datl_cortcz <- datz %>% 
+  select(sample_id, t1cort_z, t2cort_z, t3cort_z) %>%
+  pivot_longer(cols = c(t1cort_z, t2cort_z, t3cort_z),
+                               names_to = "timepoint",
+                               values_to = "cort_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_z" ~"t1", 
+                         timepoint =="t2cort_z" ~ "t2",
+                         timepoint =="t3cort_z" ~ "t3"))
+#crp conc
+datl_crpc <- datz %>% 
+  select(sample_id, t1crp_conc, t2crp_conc, t3crp_conc) %>%
+  pivot_longer(cols = c(t1crp_conc, t2crp_conc, t3crp_conc),
+                               names_to = "timepoint",
+                               values_to = "crp_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_conc" ~"t1", 
+                         timepoint =="t2crp_conc" ~ "t2",
+                         timepoint =="t3crp_conc" ~ "t3"))
+datl_crpcz <- datz %>% 
+  select(sample_id, t1crp_z, t2crp_z, t3crp_z) %>%
+  pivot_longer(cols = c(t1crp_z, t2crp_z, t3crp_z),
+                               names_to = "timepoint",
+                               values_to = "crp_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_z" ~"t1", 
+                         timepoint =="t2crp_z" ~ "t2",
+                         timepoint =="t3crp_z" ~ "t3"))
+#time difference
+datl_timed <- datz %>% 
+  select(sample_id, t1timediff, t2timediff, t3timediff) %>%
+  pivot_longer(cols = c(t1timediff, t2timediff, t3timediff),
+                               names_to = "timepoint",
+                               values_to = "timediff") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff" ~"t1", 
+                         timepoint =="t2timediff" ~ "t2",
+                         timepoint =="t3timediff" ~ "t3"))
+datl_timedz <- datz %>% 
+  select(sample_id, t1timediff_z, t2timediff_z, t3timediff_z) %>%
+  pivot_longer(cols = c(t1timediff_z, t2timediff_z, t3timediff_z),
+                               names_to = "timepoint",
+                               values_to = "timediffz") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff_z" ~"t1", 
+                         timepoint =="t2timediff_z" ~ "t2",
+                         timepoint =="t3timediff_z" ~ "t3"))
+
+##notes
+datl_notes <- datz %>% 
+  select(sample_id, t1notes, t2notes, t3notes) %>%
+  pivot_longer(cols = c(t1notes, t2notes, t3notes),
+                               names_to = "timepoint",
+                               values_to = "notes") %>%
+  mutate(timepoint = case_when(timepoint== "t1notes" ~"t1", 
+                         timepoint =="t2notes" ~ "t2",
+                         timepoint =="t3notes" ~ "t3"))
+
+##join all files together
+datl <- inner_join(datl_tb, datl_tbz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exh, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exhz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dev, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_devz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsa, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsaz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ds, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dsz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ps, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psqi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_psqiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igaflow, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igafz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testc, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testcz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dheasf, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_dheasfz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timed, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timedz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_notes, by = c("sample_id", "timepoint"))
+
+##remove row 182 for eating
+datlx <- datl[-182,]
+##filtering data by time difference between eating and sample collection
+datlx <- datlx %>% filter(timediff > 1.5)
+##remove participant 91 for injury
+datlx <- datlx %>% filter(sample_id != 91, sample_id!=163) 
+```
+
+# Clean data
+```{r data cleaning for wide format}
+datz <- datz %>%
+  filter(t1timediff > 1.5) ##only looking at the first wave, because following models (wide format) only have the biomarkers on the first wave
+```
+
+# Moderation analyses (wave 1 to wave 2)
+The first moderation approach focuses on looking at a moderation between burnout and biomarkers (wave 1) onto a health variable (wave 2), while controlling for the health variable at wave 1 (with lm).
+```{r moderation}
+##physical symptoms on
+## iga
+tbigaps <- lm(t2PS ~ t1TB_z * t1iga_z + t1PS_z, data = datz)
+summary(tbigaps)
+
+exhigaps <- lm(t2PS ~ t1EXH_z * t1iga_z+ t1PS_z, data = datz)
+summary(exhigaps)
+
+devigaps <- lm(t2PS ~ t1DEV_z * t1iga_z+ t1PS_z, data = datz)
+summary(devigaps)
+
+rsaigaps <- lm(t2PS ~ t1RSA_z * t1iga_z+ t1PS_z, data = datz)
+summary(rsaigaps)
+
+##testosterone
+tbtestops <- lm(t2PS ~ t1TB_z * t1testo_z+ t1PS_z, data = datz)
+summary(tbtestops)
+
+exhtestops <- lm(t2PS ~ t1EXH_z * t1testo_z+ t1PS_z, data = datz)
+summary(exhtestops)
+
+devtestops <- lm(t2PS ~ t1DEV_z * t1testo_z+ t1PS_z, data = datz)
+summary(devtestops)
+
+rsatestops <- lm(t2PS ~ t1RSA_z * t1testo_z+ t1PS_z, data = datz)
+summary(rsatestops)
+
+##dheas
+tbdheasps <- lm(t2PS ~ t1TB_z * t1dheas_z+ t1PS_z, data = datz)
+summary(tbdheasps)
+
+exhdheasps <- lm(t2PS ~ t1EXH_z * t1dheas_z+ t1PS_z, data = datz)
+summary(exhdheasps)
+
+devdheasps <- lm(t2PS ~ t1DEV_z * t1dheas_z+ t1PS_z, data = datz)
+summary(devdheasps)
+
+rsadheasps <- lm(t2PS ~ t1RSA_z * t1dheas_z+ t1PS_z, data = datz)
+summary(rsadheasps)
+
+##cortisol
+tbcortps <- lm(t2PS ~ t1TB_z * t1cort_z+ t1PS_z, data = datz)
+summary(tbcortps)
+
+exhcortps <- lm(t2PS ~ t1EXH_z * t1cort_z+ t1PS_z, data = datz)
+summary(exhcortps)
+
+devcortps <- lm(t2PS ~ t1DEV_z * t1cort_z+ t1PS_z, data = datz)
+summary(devcortps)
+
+rsacortps <- lm(t2PS ~ t1RSA_z * t1cort_z+ t1PS_z, data = datz)
+summary(rsacortps)
+
+##crp 
+tbcrpps <- lm(t2PS ~ t1TB_z * t1crp_z+ t1PS_z, data = datz)
+summary(tbcrpps)
+
+exhcrpps <- lm(t2PS ~ t1EXH_z * t1crp_z+ t1PS_z, data = datz)
+summary(exhcrpps)
+
+devcrpps <- lm(t2PS ~ t1DEV_z * t1crp_z+ t1PS_z, data = datz)
+summary(devcrpps)
+
+rsacrpps <- lm(t2PS ~ t1RSA_z * t1crp_z+ t1PS_z, data = datz)
+summary(rsacrpps)
+
+##depressive symptoms on
+## iga
+tbigaDS <- lm(t2DS ~ t1TB_z * t1iga_z+ t1DS_z, data = datz)
+summary(tbigaDS)
+
+exhigaDS <- lm(t2DS ~ t1EXH_z * t1iga_z+ t1DS_z, data = datz)
+summary(exhigaDS)
+
+devigaDS <- lm(t2DS ~ t1DEV_z * t1iga_z+ t1DS_z, data = datz)
+summary(devigaDS)
+
+rsaigaDS <- lm(t2DS ~ t1RSA_z * t1iga_z+ t1DS_z, data = datz)
+summary(rsaigaDS)
+
+##testosterone
+tbtestoDS <- lm(t2DS ~ t1TB_z * t1testo_z+ t1DS_z, data = datz)
+summary(tbtestoDS)
+
+exhtestoDS <- lm(t2DS ~ t1EXH_z * t1testo_z+ t1DS_z, data = datz)
+summary(exhtestoDS)
+
+devtestoDS <- lm(t2DS ~ t1DEV_z * t1testo_z+ t1DS_z, data = datz)
+summary(devtestoDS)
+
+rsatestoDS <- lm(t2DS ~ t1RSA_z * t1testo_z+ t1DS_z, data = datz)
+summary(rsatestoDS)
+
+##dheas
+tbdheasDS <- lm(t2DS ~ t1TB_z * t1dheas_z+ t1DS_z, data = datz)
+summary(tbdheasDS)
+
+exhdheasDS <- lm(t2DS ~ t1EXH_z * t1dheas_z+ t1DS_z, data = datz)
+summary(exhdheasDS)
+
+devdheasDS <- lm(t2DS ~ t1DEV_z * t1dheas_z+ t1DS_z, data = datz)
+summary(devdheasDS)
+
+rsadheasDS <- lm(t2DS ~ t1RSA_z * t1dheas_z+ t1DS_z, data = datz)
+summary(rsadheasDS)
+
+##cortisol
+tbcortDS <- lm(t2DS ~ t1TB_z * t1cort_z+ t1DS_z, data = datz)
+summary(tbcortDS)
+
+exhcortDS <- lm(t2DS ~ t1EXH_z * t1cort_z+ t1DS_z, data = datz)
+summary(exhcortDS)
+
+devcortDS <- lm(t2DS ~ t1DEV_z * t1cort_z+ t1DS_z, data = datz)
+summary(devcortDS)
+
+rsacortDS <- lm(t2DS ~ t1RSA_z * t1cort_z+ t1DS_z, data = datz)
+summary(rsacortDS)
+
+##crp 
+tbcrpDS <- lm(t2DS ~ t1TB_z * t1crp_z+ t1DS_z, data = datz)
+summary(tbcrpDS)
+
+exhcrpDS <- lm(t2DS ~ t1EXH_z * t1crp_z+ t1DS_z, data = datz)
+summary(exhcrpDS)
+
+devcrpDS <- lm(t2DS ~ t1DEV_z * t1crp_z+ t1DS_z, data = datz)
+summary(devcrpDS)
+
+rsacrpDS <- lm(t2DS ~ t1RSA_z * t1crp_z+ t1DS_z, data = datz)
+summary(rsacrpDS)
+
+##insomnia symptoms on
+## iga
+tbigaISI <- lm(t2ISI ~ t1TB_z * t1iga_z+ t1ISI_z, data = datz)
+summary(tbigaISI)
+
+exhigaISI <- lm(t2ISI ~ t1EXH_z * t1iga_z+ t1ISI_z, data = datz)
+summary(exhigaISI)
+
+devigaISI <- lm(t2ISI ~ t1DEV_z * t1iga_z+ t1ISI_z, data = datz)
+summary(devigaISI)
+
+rsaigaISI <- lm(t2ISI ~ t1RSA_z * t1iga_z+ t1ISI_z, data = datz)
+summary(rsaigaISI)
+
+##testosterone
+tbtestoISI <- lm(t2ISI ~ t1TB_z * t1testo_z+ t1ISI_z, data = datz)
+summary(tbtestoISI)
+
+exhtestoISI <- lm(t2ISI ~ t1EXH_z * t1testo_z+ t1ISI_z, data = datz)
+summary(exhtestoISI)
+
+devtestoISI <- lm(t2ISI ~ t1DEV_z * t1testo_z+ t1ISI_z, data = datz)
+summary(devtestoISI)
+
+rsatestoISI <- lm(t2ISI ~ t1RSA_z * t1testo_z+ t1ISI_z, data = datz)
+summary(rsatestoISI)
+
+##dheas
+tbdheasISI <- lm(t2ISI ~ t1TB_z * t1dheas_z+ t1ISI_z, data = datz)
+summary(tbdheasISI)
+
+exhdheasISI <- lm(t2ISI ~ t1EXH_z * t1dheas_z+ t1ISI_z, data = datz)
+summary(exhdheasISI)
+
+devdheasISI <- lm(t2ISI ~ t1DEV_z * t1dheas_z+ t1ISI_z, data = datz)
+summary(devdheasISI)
+
+rsadheasISI <- lm(t2ISI ~ t1RSA_z * t1dheas_z+ t1ISI_z, data = datz)
+summary(rsadheasISI)
+
+##cortisol
+tbcortISI <- lm(t2ISI ~ t1TB_z * t1cort_z+ t1ISI_z, data = datz)
+summary(tbcortISI)
+
+exhcortISI <- lm(t2ISI ~ t1EXH_z * t1cort_z+ t1ISI_z, data = datz)
+summary(exhcortISI)
+
+devcortISI <- lm(t2ISI ~ t1DEV_z * t1cort_z+ t1ISI_z, data = datz)
+summary(devcortISI)
+
+rsacortISI <- lm(t2ISI ~ t1RSA_z * t1cort_z+ t1ISI_z, data = datz)
+summary(rsacortISI)
+
+##crp 
+tbcrpISI <- lm(t2ISI ~ t1TB_z * t1crp_z+ t1ISI_z, data = datz)
+summary(tbcrpISI)
+
+exhcrpISI <- lm(t2ISI ~ t1EXH_z * t1crp_z+ t1ISI_z, data = datz)
+summary(exhcrpISI)
+
+devcrpISI <- lm(t2ISI ~ t1DEV_z * t1crp_z+ t1ISI_z, data = datz)
+summary(devcrpISI)
+
+rsacrpISI <- lm(t2ISI ~ t1RSA_z * t1crp_z+ t1ISI_z, data = datz)
+summary(rsacrpISI)
+
+##sleep disruptions on
+## iga
+tbigaPSQI <- lm(t2PSQI ~ t1TB_z * t1iga_z + t1PSQI_z, data = datz)
+summary(tbigaPSQI)
+
+exhigaPSQI <- lm(t2PSQI ~ t1EXH_z * t1iga_z+ t1PSQI_z, data = datz)
+summary(exhigaPSQI)
+
+devigaPSQI <- lm(t2PSQI ~ t1DEV_z * t1iga_z+ t1PSQI_z, data = datz)
+summary(devigaPSQI)
+
+rsaigaPSQI <- lm(t2PSQI ~ t1RSA_z * t1iga_z+ t1PSQI_z, data = datz)
+summary(rsaigaPSQI)
+
+##testosterone
+tbtestoPSQI <- lm(t2PSQI ~ t1TB_z * t1testo_z+ t1PSQI_z, data = datz)
+summary(tbtestoPSQI)
+
+exhtestoPSQI <- lm(t2PSQI ~ t1EXH_z * t1testo_z+ t1PSQI_z, data = datz)
+summary(exhtestoPSQI)
+
+devtestoPSQI <- lm(t2PSQI ~ t1DEV_z * t1testo_z+ t1PSQI_z, data = datz)
+summary(devtestoPSQI)
+
+rsatestoPSQI <- lm(t2PSQI ~ t1RSA_z * t1testo_z+ t1PSQI_z, data = datz)
+summary(rsatestoPSQI)
+
+##dheas
+tbdheasPSQI <- lm(t2PSQI ~ t1TB_z * t1dheas_z+ t1PSQI_z, data = datz)
+summary(tbdheasPSQI)
+
+exhdheasPSQI <- lm(t2PSQI ~ t1EXH_z * t1dheas_z+ t1PSQI_z, data = datz)
+summary(exhdheasPSQI)
+
+devdheasPSQI <- lm(t2PSQI ~ t1DEV_z * t1dheas_z+ t1PSQI_z, data = datz)
+summary(devdheasPSQI)
+
+rsadheasPSQI <- lm(t2PSQI ~ t1RSA_z * t1dheas_z+ t1PSQI_z, data = datz)
+summary(rsadheasPSQI)
+
+##cortisol
+tbcortPSQI <- lm(t2PSQI ~ t1TB_z * t1cort_z+ t1PSQI_z, data = datz)
+summary(tbcortPSQI)
+
+exhcortPSQI <- lm(t2PSQI ~ t1EXH_z * t1cort_z+ t1PSQI_z, data = datz)
+summary(exhcortPSQI)
+
+devcortPSQI <- lm(t2PSQI ~ t1DEV_z * t1cort_z+ t1PSQI_z, data = datz)
+summary(devcortPSQI)
+
+rsacortPSQI <- lm(t2PSQI ~ t1RSA_z * t1cort_z+ t1PSQI_z, data = datz)
+summary(rsacortPSQI)
+
+##crp 
+tbcrpPSQI <- lm(t2PSQI ~ t1TB_z * t1crp_z+ t1PSQI_z, data = datz)
+summary(tbcrpPSQI)
+
+exhcrpPSQI <- lm(t2PSQI ~ t1EXH_z * t1crp_z+ t1PSQI_z, data = datz)
+summary(exhcrpPSQI)
+
+devcrpPSQI <- lm(t2PSQI ~ t1DEV_z * t1crp_z+ t1PSQI_z, data = datz)
+summary(devcrpPSQI)
+
+rsacrpPSQI <- lm(t2PSQI ~ t1RSA_z * t1crp_z+ t1PSQI_z, data = datz)
+summary(rsacrpPSQI)
+```       
+
+# Multilevel moderation (all waves included)
+The second approach uses multilevel moderation (with lmer), which includes the data from all three waves. Lmer allows to model both random intercepts and random slopes - these are used here where convergence is possible with them. 
+```{r multilevel moderation}
+### physical symptoms
+## IgA on 
+# Total Burnout
+mmpsigatb1 <- lmer(PS ~ TBz+iga_flowz +(TBz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsigatb2 <- lmer(PS ~ TBz*iga_flowz + (TBz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsigatb1, mmpsigatb2)
+summary(mmpsigatb2)
+
+# EXH
+mmpsigaexh1 <- lmer(PS ~ EXHz+iga_flowz +(EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsigaexh2 <- lmer(PS ~ EXHz*iga_flowz + (EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsigaexh1, mmpsigaexh2)
+summary(mmpsigaexh2)
+
+# DEV
+mmpsigadev1 <- lmer(PS ~ DEVz+iga_flowz +(DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsigadev2 <- lmer(PS ~ DEVz*iga_flowz + (DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsigadev1, mmpsigadev2)
+summary(mmpsigadev2)
+
+# RSA
+mmpsigarsa1 <- lmer(PS ~ RSAz+iga_flowz +(RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsigarsa2 <- lmer(PS ~ RSAz*iga_flowz + (RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsigarsa1, mmpsigarsa2)
+summary(mmpsigarsa2)
+
+## Testosterone on
+# Total Burnout
+mmpstestotb1 <- lmer(PS ~ TBz+test_concz + (TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmpstestotb2 <- lmer(PS ~ TBz*test_concz + (TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpstestotb1, mmpstestotb2)
+summary(mmpstestotb2)
+
+# EXH
+mmpstestoexh1 <- lmer(PS ~ EXHz+test_concz +(EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmpstestoexh2 <- lmer(PS ~ EXHz*test_concz + (EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpstestoexh1, mmpstestoexh2)
+summary(mmpstestoexh2)
+
+# DEV
+mmpstestodev1 <- lmer(PS ~ DEVz+test_concz +(DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmpstestodev2 <- lmer(PS ~ DEVz*test_concz + (DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpstestodev1, mmpstestodev2)
+summary(mmpstestodev2)
+
+# RSA
+datlxtestrsac <- datlx %>% filter(!is.na(test_concz), !is.na(RSAz))
+mmpstestorsa1 <- lmer(PS ~  RSAz+test_concz + (test_concz | sample_id) , data = datlxtestrsac, REML = FALSE) ##slope only for testo
+mmpstestorsa2 <- lmer(PS ~ RSAz*test_concz +  (test_concz | sample_id) , data = datlxtestrsac, REML = FALSE)
+anova(mmpstestorsa1, mmpstestorsa2) 
+summary(mmpstestorsa2)
+
+## DHEAS on
+# Total Burnout
+mmpsdheastb1 <- lmer(PS ~ TBz+dheas_flowz +(TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsdheastb2 <- lmer(PS ~ TBz*dheas_flowz + (TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsdheastb1, mmpsdheastb2)
+summary(mmpsdheastb2)
+
+# EXH
+mmpsdheasexh1 <- lmer(PS ~ EXHz+dheas_flowz +(EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsdheasexh2 <- lmer(PS ~ EXHz*dheas_flowz + (EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsdheasexh1, mmpsdheasexh2)
+summary(mmpsdheasexh2)
+
+# DEV
+mmpsdheasdev1 <- lmer(PS ~ DEVz+dheas_flowz + (DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsdheasdev2 <- lmer(PS ~ DEVz*dheas_flowz + (DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsdheasdev1, mmpsdheasdev2)
+summary(mmpsdheasdev2)
+
+# RSA
+mmpsdheasrsa1 <- lmer(PS ~ RSAz+dheas_flowz + (RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmpsdheasrsa2 <- lmer(PS ~ RSAz*dheas_flowz + (RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpsdheasrsa1, mmpsdheasrsa2)
+summary(mmpsdheasrsa2)
+
+## Cortisol on
+# Total Burnout
+mmpscorttb1 <- lmer(PS ~ TBz+cort_concz + (TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmpscorttb2 <- lmer(PS ~ TBz*cort_concz + (TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscorttb1, mmpscorttb2)
+summary(mmpscorttb2)
+
+# EXH
+mmpscortexh1 <- lmer(PS ~ EXHz+cort_concz +(EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmpscortexh2 <- lmer(PS ~ EXHz*cort_concz + (EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscortexh1, mmpscortexh2)
+summary(mmpscortexh2)
+
+# DEV
+mmpscortdev1 <- lmer(PS ~ DEVz+cort_concz  + (1 | sample_id) , data = datlx, REML = FALSE)
+mmpscortdev2 <- lmer(PS ~ DEVz*cort_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscortdev1, mmpscortdev2) ##SIGNIFICANT
+summary(mmpscortdev2)
+
+# RSA
+mmpscortrsa1 <- lmer(PS ~ RSAz+cort_concz +(RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmpscortrsa2 <- lmer(PS ~ RSAz*cort_concz + (RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscortrsa1, mmpscortrsa2)
+summary(mmpscortrsa2)
+
+## CRP on 
+# Total Burnout
+mmpscrptb1 <- lmer(PS ~ TBz+crp_concz +(TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmpscrptb2 <- lmer(PS ~ TBz*crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscrptb1, mmpscrptb2)
+summary(mmpscrptb2)
+
+# EXH
+mmpscrpexh1 <- lmer(PS ~ EXHz+crp_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+mmpscrpexh2 <- lmer(PS ~ EXHz*crp_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscrpexh1, mmpscrpexh2) ##SINGIFICANT with random slopes
+summary(mmpscrpexh2)
+
+# DEV
+mmpscrpdev1 <- lmer(PS ~ DEVz+crp_concz + (1| sample_id) , data = datlx, REML = FALSE)
+mmpscrpdev2 <- lmer(PS ~ DEVz*crp_concz + (1| sample_id) , data = datlx, REML = FALSE)
+anova(mmpscrpdev1, mmpscrpdev2) ##SIGNIFICANT
+summary(mmpscrpdev2)
+
+# RSA
+mmpscrprsa1 <- lmer(PS ~ RSAz+crp_concz +(RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmpscrprsa2 <- lmer(PS ~ RSAz*crp_concz + (RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmpscrprsa1, mmpscrprsa2)
+summary(mmpscrprsa2)
+
+
+### Depressive Symptoms
+## IgA on 
+# Total Burnout
+datlxdheastbc <- datlx %>% filter(!is.na(iga_flowz), !is.na(TBz))
+mmDSigatb1 <- lmer(DS ~ TBz+iga_flowz +(iga_flowz | sample_id) , data = datlxdheastbc, REML = FALSE) ##slope for iga only
+mmDSigatb2 <- lmer(DS ~ TBz*iga_flowz + (iga_flowz | sample_id) , data = datlxdheastbc, REML = FALSE)
+anova(mmDSigatb1, mmDSigatb2) 
+summary(mmDSigatb2)
+
+# EXH
+datlxdheasexhc <- datlx %>% filter(!is.na(iga_flowz), !is.na(EXHz))
+mmDSigaexh1 <- lmer(DS ~ EXHz+iga_flowz +(iga_flowz | sample_id) , data = datlxdheasexhc, REML = FALSE) ##slope for iga only
+mmDSigaexh2 <- lmer(DS ~ EXHz*iga_flowz + (iga_flowz | sample_id) , data = datlxdheasexhc, REML = FALSE)
+anova(mmDSigaexh1, mmDSigaexh2) 
+summary(mmDSigaexh2)
+
+# DEV
+datlxdheasdevc <- datlx %>% filter(!is.na(iga_flowz), !is.na(DEVz))
+mmDSigadev1 <- lmer(DS ~ DEVz+iga_flowz +(iga_flowz | sample_id) , data = datlxdheasdevc, REML = FALSE) ##slope for iga only
+mmDSigadev2 <- lmer(DS ~ DEVz*iga_flowz + (iga_flowz | sample_id) , data = datlxdheasdevc, REML = FALSE)
+anova(mmDSigadev1, mmDSigadev2) 
+summary(mmDSigadev2)
+
+# RSA
+mmDSigarsa1 <- lmer(DS ~ RSAz+iga_flowz +(RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmDSigarsa2 <- lmer(DS ~ RSAz*iga_flowz + (RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDSigarsa1, mmDSigarsa2)
+summary(mmDSigarsa2)
+
+## Testosterone on
+# Total Burnout
+mmDStestotb1 <- lmer(DS ~ TBz+test_concz +(TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmDStestotb2 <- lmer(DS ~ TBz*test_concz + (TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDStestotb1, mmDStestotb2)
+summary(mmDStestotb2)
+
+# EXH
+mmDStestoexh1 <- lmer(DS ~ EXHz+test_concz +(EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmDStestoexh2 <- lmer(DS ~ EXHz*test_concz + (EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDStestoexh1, mmDStestoexh2)
+summary(mmDStestoexh2)
+
+# DEV
+mmDStestodev1 <- lmer(DS ~ DEVz+test_concz +(DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmDStestodev2 <- lmer(DS ~ DEVz*test_concz + (DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDStestodev1, mmDStestodev2)
+summary(mmDStestodev2)
+
+# RSA
+mmDStestorsa1 <- lmer(DS ~ RSAz+test_concz +(RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmDStestorsa2 <- lmer(DS ~ RSAz*test_concz + (RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDStestorsa1, mmDStestorsa2)
+summary(mmDStestorsa2)
+
+## DHEAS on
+# Total Burnout
+datlxdheastbc <- datlx %>% filter(!is.na(dheas_flowz), !is.na(TBz))
+mmDSdheastb1 <- lmer(DS ~ TBz+dheas_flowz+(dheas_flowz | sample_id), data = datlxdheastbc, REML = FALSE) ##with slope for dheas only due to convergence
+mmDSdheastb2 <- lmer(DS ~ TBz*dheas_flowz + (dheas_flowz | sample_id), data = datlxdheastbc, REML = FALSE)
+anova(mmDSdheastb1, mmDSdheastb2)  
+summary(mmDSdheastb2)
+
+# EXH
+mmDSdheasexh1 <- lmer(DS ~ EXHz+dheas_flowz +(EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmDSdheasexh2 <- lmer(DS ~ EXHz*dheas_flowz + (EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDSdheasexh1, mmDSdheasexh2)
+summary(mmDSdheasexh2)
+
+# DEV
+datlxdheasdevc <- datlx %>% filter(!is.na(dheas_flowz), !is.na(DEVz))
+mmDSdheasdev1 <- lmer(DS ~ DEVz+dheas_flowz +(dheas_flowz | sample_id) , data = datlxdheasdevc, REML = FALSE) # random slope for DHEAS only
+mmDSdheasdev2 <- lmer(DS ~ DEVz*dheas_flowz + (dheas_flowz | sample_id) , data = datlxdheasdevc, REML = FALSE)
+anova(mmDSdheasdev1, mmDSdheasdev2)  
+summary(mmDSdheasdev2)
+
+# RSA
+mmDSdheasrsa1 <- lmer(DS ~ RSAz+dheas_flowz +(RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmDSdheasrsa2 <- lmer(DS ~ RSAz*dheas_flowz + (RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDSdheasrsa1, mmDSdheasrsa2)
+summary(mmDSdheasrsa2)
+
+## Cortisol on
+# Total Burnout
+mmDScorttb1 <- lmer(DS ~ TBz+cort_concz +(TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScorttb2 <- lmer(DS ~ TBz*cort_concz + (TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScorttb1, mmDScorttb2)
+summary(mmDScorttb2)
+
+# EXH
+mmDScortexh1 <- lmer(DS ~ EXHz+cort_concz +(EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScortexh2 <- lmer(DS ~ EXHz*cort_concz + (EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScortexh1, mmDScortexh2)
+summary(mmDScortexh2)
+
+# DEV
+mmDScortdev1 <- lmer(DS ~ DEVz+cort_concz +(DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScortdev2 <- lmer(DS ~ DEVz*cort_concz + (DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScortdev1, mmDScortdev2)
+summary(mmDScortdev2)
+
+# RSA
+mmDScortrsa1 <- lmer(DS ~ RSAz+cort_concz +(RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScortrsa2 <- lmer(DS ~ RSAz*cort_concz + (RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScortrsa1, mmDScortrsa2)
+summary(mmDScortrsa2)
+
+## CRP on 
+# Total Burnout
+mmDScrptb1 <- lmer(DS ~ TBz+crp_concz +(TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScrptb2 <- lmer(DS ~ TBz*crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScrptb1, mmDScrptb2)
+summary(mmDScrptb2)
+
+# EXH
+mmDScrpexh1 <- lmer(DS ~ EXHz+crp_concz +(EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScrpexh2 <- lmer(DS ~ EXHz*crp_concz + (EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScrpexh1, mmDScrpexh2)
+summary(mmDScrpexh2)
+
+# DEV
+mmDScrpdev1 <- lmer(DS ~ DEVz+crp_concz +(DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScrpdev2 <- lmer(DS ~ DEVz*crp_concz + (DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScrpdev1, mmDScrpdev2)
+summary(mmDScrpdev2)
+
+# RSA
+mmDScrprsa1 <- lmer(DS ~ RSAz+crp_concz + (RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmDScrprsa2 <- lmer(DS ~ RSAz*crp_concz + (RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmDScrprsa1, mmDScrprsa2)
+summary(mmDScrprsa2)
+
+
+### Insomnia Symptoms
+## IgA on 
+# Total Burnout
+mmISIigatb1 <- lmer(ISI ~ TBz+iga_flowz +(TBz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIigatb2 <- lmer(ISI ~ TBz*iga_flowz + (TBz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIigatb1, mmISIigatb2)
+summary(mmISIigatb2)
+
+# EXH
+mmISIigaexh1 <- lmer(ISI ~ EXHz+iga_flowz +(EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIigaexh2 <- lmer(ISI ~ EXHz*iga_flowz + (EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIigaexh1, mmISIigaexh2)
+summary(mmISIigaexh2)
+
+# DEV
+mmISIigadev1 <- lmer(ISI ~ DEVz+iga_flowz +(DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIigadev2 <- lmer(ISI ~ DEVz*iga_flowz + (DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIigadev1, mmISIigadev2)
+summary(mmISIigadev2)
+
+# RSA
+mmISIigarsa1 <- lmer(ISI ~ RSAz+iga_flowz +(RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIigarsa2 <- lmer(ISI ~ RSAz*iga_flowz + (RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIigarsa1, mmISIigarsa2)
+summary(mmISIigarsa2)
+
+## Testosterone on
+# Total Burnout
+mmISItestotb1 <- lmer(ISI ~ TBz+test_concz +(TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmISItestotb2 <- lmer(ISI ~ TBz*test_concz + (TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISItestotb1, mmISItestotb2)
+summary(mmISItestotb2)
+
+# EXH
+mmISItestoexh1 <- lmer(ISI ~ EXHz+test_concz + (EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmISItestoexh2 <- lmer(ISI ~ EXHz*test_concz + (EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISItestoexh1, mmISItestoexh2)
+summary(mmISItestoexh2)
+
+# DEV
+datlxtestdevc <- datlx %>% filter(!is.na(test_concz), !is.na(DEVz))
+mmISItestodev1 <- lmer(ISI ~ DEVz+test_concz + (test_concz | sample_id) , data = datlxtestdevc, REML = FALSE) ##Reduced to slope for testosterone only due to convergence issues
+mmISItestodev2 <- lmer(ISI ~ DEVz*test_concz + (test_concz | sample_id) , data = datlxtestdevc, REML = FALSE)
+anova(mmISItestodev1, mmISItestodev2)  
+summary(mmISItestodev2)
+
+# RSA
+mmISItestorsa1 <- lmer(ISI ~ RSAz+test_concz + (RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmISItestorsa2 <- lmer(ISI ~ RSAz*test_concz + (RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISItestorsa1, mmISItestorsa2)
+summary(mmISItestorsa2)
+
+## DHEAS on
+# Total Burnout
+mmISIdheastb1 <- lmer(ISI ~ TBz+dheas_flowz +(TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIdheastb2 <- lmer(ISI ~ TBz*dheas_flowz + (TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIdheastb1, mmISIdheastb2)
+summary(mmISIdheastb2)
+
+# EXH
+mmISIdheasexh1 <- lmer(ISI ~ EXHz+dheas_flowz +(EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIdheasexh2 <- lmer(ISI ~ EXHz*dheas_flowz + (EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIdheasexh1, mmISIdheasexh2)
+summary(mmISIdheasexh2)
+
+# DEV
+mmISIdheasdev1 <- lmer(ISI ~ DEVz+dheas_flowz +(DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIdheasdev2 <- lmer(ISI ~ DEVz*dheas_flowz + (DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIdheasdev1, mmISIdheasdev2)
+summary(mmISIdheasdev2)
+
+# RSA
+mmISIdheasrsa1 <- lmer(ISI ~ RSAz+dheas_flowz +(RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmISIdheasrsa2 <- lmer(ISI ~ RSAz*dheas_flowz + (RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIdheasrsa1, mmISIdheasrsa2)
+summary(mmISIdheasrsa2)
+
+## Cortisol on
+# Total Burnout
+mmISIcorttb1 <- lmer(ISI ~ TBz+cort_concz +(TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcorttb2 <- lmer(ISI ~ TBz*cort_concz + (TBz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcorttb1, mmISIcorttb2)
+summary(mmISIcorttb2)
+
+# EXH
+mmISIcortexh1 <- lmer(ISI ~ EXHz+cort_concz +(EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcortexh2 <- lmer(ISI ~ EXHz*cort_concz + (EXHz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcortexh1, mmISIcortexh2)
+summary(mmISIcortexh2)
+
+# DEV
+mmISIcortdev1 <- lmer(ISI ~ DEVz+cort_concz +(DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcortdev2 <- lmer(ISI ~ DEVz*cort_concz + (DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcortdev1, mmISIcortdev2)
+summary(mmISIcortdev2)
+
+# RSA
+mmISIcortrsa1 <- lmer(ISI ~ RSAz+cort_concz +(RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcortrsa2 <- lmer(ISI ~ RSAz*cort_concz + (RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcortrsa1, mmISIcortrsa2)
+summary(mmISIcortrsa2)
+
+## CRP on 
+# Total Burnout
+mmISIcrptb1 <- lmer(ISI ~ TBz+crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcrptb2 <- lmer(ISI ~ TBz*crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcrptb1, mmISIcrptb2)
+summary(mmISIcrptb2)
+
+# EXH
+mmISIcrpexh1 <- lmer(ISI ~ EXHz+crp_concz +(EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcrpexh2 <- lmer(ISI ~ EXHz*crp_concz + (EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcrpexh1, mmISIcrpexh2)
+summary(mmISIcrpexh2)
+
+# DEV
+mmISIcrpdev1 <- lmer(ISI ~ DEVz+crp_concz +(DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcrpdev2 <- lmer(ISI ~ DEVz*crp_concz + (DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcrpdev1, mmISIcrpdev2)
+summary(mmISIcrpdev2)
+
+# RSA
+mmISIcrprsa1 <- lmer(ISI ~ RSAz+crp_concz +(RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmISIcrprsa2 <- lmer(ISI ~ RSAz*crp_concz + (RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmISIcrprsa1, mmISIcrprsa2)
+summary(mmISIcrprsa2)
+
+### Sleep Disruptions
+## IgA on 
+# Total Burnout
+datlxigatbc <- datlx %>% filter(!is.na(iga_flowz), !is.na(TBz))
+mmPSQIigatb1 <- lmer(PSQI ~ TBz+iga_flowz +(iga_flowz | sample_id), data = datlxigatbc, REML = FALSE) ##Reduced to slope for iga only, bc of convergence issues
+mmPSQIigatb2 <- lmer(PSQI ~ TBz*iga_flowz + (iga_flowz | sample_id), data = datlxigatbc, REML = FALSE)
+anova(mmPSQIigatb1, mmPSQIigatb2)  
+summary(mmPSQIigatb2)
+
+# EXH
+mmPSQIigaexh1 <- lmer(PSQI ~ EXHz+iga_flowz + (EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIigaexh2 <- lmer(PSQI ~ EXHz*iga_flowz + (EXHz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIigaexh1, mmPSQIigaexh2)
+summary(mmPSQIigaexh2)
+
+# DEV
+mmPSQIigadev1 <- lmer(PSQI ~ DEVz+iga_flowz +(DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIigadev2 <- lmer(PSQI ~ DEVz*iga_flowz + (DEVz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIigadev1, mmPSQIigadev2)
+summary(mmPSQIigadev2)
+
+# RSA
+mmPSQIigarsa1 <- lmer(PSQI ~ RSAz+iga_flowz +(RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIigarsa2 <- lmer(PSQI ~ RSAz*iga_flowz + (RSAz | sample_id) + (iga_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIigarsa1, mmPSQIigarsa2)
+summary(mmPSQIigarsa2)
+
+## Testosterone on
+# Total Burnout
+mmPSQItestotb1 <- lmer(PSQI ~ TBz+test_concz +(TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQItestotb2 <- lmer(PSQI ~ TBz*test_concz + (TBz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQItestotb1, mmPSQItestotb2)
+summary(mmPSQItestotb2)
+
+# EXH
+mmPSQItestoexh1 <- lmer(PSQI ~ EXHz+test_concz +(EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQItestoexh2 <- lmer(PSQI ~ EXHz*test_concz + (EXHz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQItestoexh1, mmPSQItestoexh2)
+summary(mmPSQItestoexh2)
+
+# DEV
+mmPSQItestodev1 <- lmer(PSQI ~ DEVz+test_concz +(DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQItestodev2 <- lmer(PSQI ~ DEVz*test_concz + (DEVz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQItestodev1, mmPSQItestodev2)
+summary(mmPSQItestodev2)
+
+# RSA
+mmPSQItestorsa1 <- lmer(PSQI ~ RSAz+test_concz +(RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQItestorsa2 <- lmer(PSQI ~ RSAz*test_concz + (RSAz | sample_id) + (test_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQItestorsa1, mmPSQItestorsa2)
+summary(mmPSQItestorsa2)
+
+## DHEAS on
+# Total Burnout
+mmPSQIdheastb1 <- lmer(PSQI ~ TBz+dheas_flowz +(TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIdheastb2 <- lmer(PSQI ~ TBz*dheas_flowz + (TBz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIdheastb1, mmPSQIdheastb2)
+summary(mmPSQIdheastb2)
+
+# EXH
+mmPSQIdheasexh1 <- lmer(PSQI ~ EXHz+dheas_flowz +(EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIdheasexh2 <- lmer(PSQI ~ EXHz*dheas_flowz + (EXHz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIdheasexh1, mmPSQIdheasexh2)
+summary(mmPSQIdheasexh2)
+
+# DEV
+mmPSQIdheasdev1 <- lmer(PSQI ~ DEVz+dheas_flowz +(DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIdheasdev2 <- lmer(PSQI ~ DEVz*dheas_flowz + (DEVz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIdheasdev1, mmPSQIdheasdev2)
+summary(mmPSQIdheasdev2)
+
+# RSA
+mmPSQIdheasrsa1 <- lmer(PSQI ~ RSAz+dheas_flowz +(RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIdheasrsa2 <- lmer(PSQI ~ RSAz*dheas_flowz + (RSAz | sample_id) + (dheas_flowz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIdheasrsa1, mmPSQIdheasrsa2)
+summary(mmPSQIdheasrsa2)
+
+## Cortisol on
+# Total Burnout
+mmPSQIcorttb1 <- lmer(PSQI ~ TBz+cort_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcorttb2 <- lmer(PSQI ~ TBz*cort_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcorttb1, mmPSQIcorttb2) #SIGNIFICANT with random slopes only
+summary(mmPSQIcorttb2)
+
+# EXH
+mmPSQIcortexh1 <- lmer(PSQI ~ EXHz+cort_concz + (1 | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcortexh2 <- lmer(PSQI ~ EXHz*cort_concz +  (1 | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcortexh1, mmPSQIcortexh2)
+summary(mmPSQIcortexh2)
+
+# DEV
+mmPSQIcortdev1 <- lmer(PSQI ~ DEVz+cort_concz +(DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcortdev2 <- lmer(PSQI ~ DEVz*cort_concz + (DEVz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcortdev1, mmPSQIcortdev2)
+summary(mmPSQIcortdev2)
+
+# RSA
+mmPSQIcortrsa1 <- lmer(PSQI ~ RSAz+cort_concz +(RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcortrsa2 <- lmer(PSQI ~ RSAz*cort_concz + (RSAz | sample_id) + (cort_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcortrsa1, mmPSQIcortrsa2)
+summary(mmPSQIcortrsa2)
+
+## CRP on 
+# Total Burnout
+mmPSQIcrptb1 <- lmer(PSQI ~ TBz+crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcrptb2 <- lmer(PSQI ~ TBz*crp_concz + (TBz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcrptb1, mmPSQIcrptb2)
+summary(mmPSQIcrptb2)
+
+# EXH
+mmPSQIcrpexh1 <- lmer(PSQI ~ EXHz+crp_concz +(EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcrpexh2 <- lmer(PSQI ~ EXHz*crp_concz + (EXHz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcrpexh1, mmPSQIcrpexh2)
+summary(mmPSQIcrpexh2)
+
+# DEV
+mmPSQIcrpdev1 <- lmer(PSQI ~ DEVz+crp_concz +(DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcrpdev2 <- lmer(PSQI ~ DEVz*crp_concz + (DEVz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcrpdev1, mmPSQIcrpdev2)
+summary(mmPSQIcrpdev2)
+
+# RSA
+mmPSQIcrprsa1 <- lmer(PSQI ~ RSAz+crp_concz +(RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+mmPSQIcrprsa2 <- lmer(PSQI ~ RSAz*crp_concz + (RSAz | sample_id) + (crp_concz | sample_id) , data = datlx, REML = FALSE)
+anova(mmPSQIcrprsa1, mmPSQIcrprsa2)
+summary(mmPSQIcrprsa2)
+
+```
+
+# Multilevel moderation (alternative approach)
+The third approach uses moderation in a multilevel regression approach (with lavaan; random intercept only).
+```{r moderated regression}
+### Physical Symptoms
+## TB x IgA x PS
+tb_iga_ps <- '
+level:1
+PS ~ TBz + iga_flowz + TBz:iga_flowz
+
+level:2
+PS ~ TBz + iga_flowz + TBz:iga_flowz
+'
+fittb_iga_ps <- sem(model = tb_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_iga_ps, "icc")
+
+## EXH x IgA x PS
+exh_iga_ps <- '
+level:1
+PS ~ EXHz + iga_flowz + EXHz:iga_flowz
+
+level:2
+PS ~ EXHz + iga_flowz + EXHz:iga_flowz
+'
+fitexh_iga_ps <- sem(model = exh_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_iga_ps, "icc")
+
+## DEV x IgA x PS
+dev_iga_ps <- '
+level:1
+PS ~ DEVz + iga_flowz + DEVz:iga_flowz
+
+level:2
+PS ~ DEVz + iga_flowz + DEVz:iga_flowz
+'
+fitdev_iga_ps <- sem(model = dev_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_iga_ps, "icc")
+
+## RSA x IgA x PS
+rsa_iga_ps <- '
+level:1
+PS ~ RSAz + iga_flowz + RSAz:iga_flowz
+
+level:2
+PS ~ RSAz + iga_flowz + RSAz:iga_flowz
+'
+fitrsa_iga_ps <- sem(model = rsa_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_iga_ps, "icc")
+
+## TB x testo x PS
+tb_testo_ps <- '
+level:1
+PS ~ TBz + test_concz + TBz:test_concz
+
+level:2
+PS ~ TBz + test_concz + TBz:test_concz
+'
+fittb_testo_ps <- sem(model = tb_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_testo_ps, "icc")
+
+## EXH x testo x PS
+exh_testo_ps <- '
+level:1
+PS ~ EXHz + test_concz + EXHz:test_concz
+
+level:2
+PS ~ EXHz + test_concz + EXHz:test_concz
+'
+fitexh_testo_ps <- sem(model = exh_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_testo_ps, "icc")
+
+## DEV x testo x PS
+dev_testo_ps <- '
+level:1
+PS ~ DEVz + test_concz + DEVz:test_concz
+
+level:2
+PS ~ DEVz + test_concz + DEVz:test_concz
+'
+fitdev_testo_ps <- sem(model = dev_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_testo_ps, "icc")
+
+## RSA x testo x PS
+rsa_testo_ps <- '
+level:1
+PS ~ RSAz + test_concz + RSAz:test_concz
+
+level:2
+PS ~ RSAz + test_concz + RSAz:test_concz
+'
+fitrsa_testo_ps <- sem(model = rsa_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_testo_ps, "icc")
+
+## TB x dheas x PS
+tb_dheas_ps <- '
+level:1
+PS ~ TBz + dheas_flowz + TBz:dheas_flowz
+
+level:2
+PS ~ TBz + dheas_flowz + TBz:dheas_flowz
+'
+fittb_dheas_ps <- sem(model = tb_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_dheas_ps, "icc")
+
+## EXH x dheas x PS
+exh_dheas_ps <- '
+level:1
+PS ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+
+level:2
+PS ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+'
+fitexh_dheas_ps <- sem(model = exh_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_dheas_ps, "icc")
+
+## DEV x dheas x PS
+dev_dheas_ps <- '
+level:1
+PS ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+
+level:2
+PS ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+'
+fitdev_dheas_ps <- sem(model = dev_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_dheas_ps, "icc")
+
+## RSA x dheas x PS
+rsa_dheas_ps <- '
+level:1
+PS ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+
+level:2
+PS ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+'
+fitrsa_dheas_ps <- sem(model = rsa_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_dheas_ps, "icc")
+
+## TB x cort x PS
+tb_cort_ps <- '
+level:1
+PS ~ TBz + cort_concz + TBz:cort_concz
+
+level:2
+PS ~ TBz + cort_concz + TBz:cort_concz
+'
+fittb_cort_ps <- sem(model = tb_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_cort_ps, "icc")
+
+## EXH x cortisol x PS
+exh_cort_ps <- '
+level:1
+PS ~ EXHz + cort_concz + EXHz:cort_concz
+
+level:2
+PS ~ EXHz + cort_concz + EXHz:cort_concz
+'
+fitexh_cort_ps <- sem(model = exh_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_cort_ps, "icc")
+
+## DEV x cortisol x PS
+dev_cort_ps <- '
+level:1
+PS ~ DEVz + cort_concz + DEVz:cort_concz
+
+level:2
+PS ~ DEVz + cort_concz + DEVz:cort_concz
+'
+fitdev_cort_ps <- sem(model = dev_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_cort_ps, "icc")
+
+## RSA x cortisol x PS
+rsa_cort_ps <- '
+level:1
+PS ~ RSAz + cort_concz + RSAz:cort_concz
+
+level:2
+PS ~ RSAz + cort_concz + RSAz:cort_concz
+'
+fitrsa_cort_ps <- sem(model = rsa_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_cort_ps, "icc")
+
+## TB x crp x PS
+tb_crp_ps <- '
+level:1
+PS ~ TBz + crp_concz + TBz:crp_concz
+
+level:2
+PS ~ TBz + crp_concz + TBz:crp_concz
+'
+fittb_crp_ps <- sem(model = tb_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_crp_ps, "icc")
+
+## EXH x crp x PS
+exh_crp_ps <- '
+level:1
+PS ~ EXHz + crp_concz + EXHz:crp_concz
+
+level:2
+PS ~ EXHz + crp_concz + EXHz:crp_concz
+'
+fitexh_crp_ps <- sem(model = exh_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_crp_ps, "icc")
+
+## DEV x crp x PS
+dev_crp_ps <- '
+level:1
+PS ~ DEVz + crp_concz + DEVz:crp_concz
+
+level:2
+PS ~ DEVz + crp_concz + DEVz:crp_concz
+'
+fitdev_crp_ps <- sem(model = dev_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_crp_ps, "icc")
+
+## RSA x crp x PS
+rsa_crp_ps <- '
+level:1
+PS ~ RSAz + crp_concz + RSAz:crp_concz
+
+level:2
+PS ~ RSAz + crp_concz + RSAz:crp_concz
+'
+fitrsa_crp_ps <- sem(model = rsa_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_ps, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_crp_ps, "icc")
+
+
+
+### Depressive Symptoms
+## TB x IgA x DS
+tb_iga_DS <- '
+level:1
+DS ~ TBz + iga_flowz + TBz:iga_flowz
+
+level:2
+DS ~ TBz + iga_flowz + TBz:iga_flowz
+'
+fittb_iga_DS <- sem(model = tb_iga_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_iga_DS, "icc")
+
+## EXH x IgA x DS
+exh_iga_DS <- '
+level:1
+DS ~ EXHz + iga_flowz + EXHz:iga_flowz
+
+level:2
+DS ~ EXHz + iga_flowz + EXHz:iga_flowz
+'
+fitexh_iga_DS <- sem(model = exh_iga_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_iga_DS, "icc")
+
+## DEV x IgA x DS
+dev_iga_DS <- '
+level:1
+DS ~ DEVz + iga_flowz + DEVz:iga_flowz
+
+level:2
+DS ~ DEVz + iga_flowz + DEVz:iga_flowz
+'
+fitdev_iga_DS <- sem(model = dev_iga_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_iga_DS, "icc")
+
+## RSA x IgA x DS
+rsa_iga_DS <- '
+level:1
+DS ~ RSAz + iga_flowz + RSAz:iga_flowz
+
+level:2
+DS ~ RSAz + iga_flowz + RSAz:iga_flowz
+'
+fitrsa_iga_DS <- sem(model = rsa_iga_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_iga_DS, "icc")
+
+## TB x testo x DS
+tb_testo_DS <- '
+level:1
+DS ~ TBz + test_concz + TBz:test_concz
+
+level:2
+DS ~ TBz + test_concz + TBz:test_concz
+'
+fittb_testo_DS <- sem(model = tb_testo_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_testo_DS, "icc")
+
+## EXH x testo x DS
+exh_testo_DS <- '
+level:1
+DS ~ EXHz + test_concz + EXHz:test_concz
+
+level:2
+DS ~ EXHz + test_concz + EXHz:test_concz
+'
+fitexh_testo_DS <- sem(model = exh_testo_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_testo_DS, "icc")
+
+## DEV x testo x DS
+dev_testo_DS <- '
+level:1
+DS ~ DEVz + test_concz + DEVz:test_concz
+
+level:2
+DS ~ DEVz + test_concz + DEVz:test_concz
+'
+fitdev_testo_DS <- sem(model = dev_testo_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_testo_DS, "icc")
+
+## RSA x testo x DS
+rsa_testo_DS <- '
+level:1
+DS ~ RSAz + test_concz + RSAz:test_concz
+
+level:2
+DS ~ RSAz + test_concz + RSAz:test_concz
+'
+fitrsa_testo_DS <- sem(model = rsa_testo_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_testo_DS, "icc")
+
+## TB x dheas x DS
+tb_dheas_DS <- '
+level:1
+DS ~ TBz + dheas_flowz + TBz:dheas_flowz
+
+level:2
+DS ~ TBz + dheas_flowz + TBz:dheas_flowz
+'
+fittb_dheas_DS <- sem(model = tb_dheas_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_dheas_DS, "icc")
+
+## EXH x dheas x DS
+exh_dheas_DS <- '
+level:1
+DS ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+
+level:2
+DS ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+'
+fitexh_dheas_DS <- sem(model = exh_dheas_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_dheas_DS, "icc")
+
+## DEV x dheas x DS
+dev_dheas_DS <- '
+level:1
+DS ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+
+level:2
+DS ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+'
+fitdev_dheas_DS <- sem(model = dev_dheas_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_dheas_DS, "icc")
+
+## RSA x dheas x DS
+rsa_dheas_DS <- '
+level:1
+DS ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+
+level:2
+DS ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+'
+fitrsa_dheas_DS <- sem(model = rsa_dheas_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_dheas_DS, "icc")
+
+## TB x cort x DS
+tb_cort_DS <- '
+level:1
+DS ~ TBz + cort_concz + TBz:cort_concz
+
+level:2
+DS ~ TBz + cort_concz + TBz:cort_concz
+'
+fittb_cort_DS <- sem(model = tb_cort_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_cort_DS, "icc")
+
+## EXH x dheas x DS
+exh_cort_DS <- '
+level:1
+DS ~ EXHz + cort_concz + EXHz:cort_concz
+
+level:2
+DS ~ EXHz + cort_concz + EXHz:cort_concz
+'
+fitexh_cort_DS <- sem(model = exh_cort_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_cort_DS, "icc")
+
+## DEV x dheas x DS
+dev_cort_DS <- '
+level:1
+DS ~ DEVz + cort_concz + DEVz:cort_concz
+
+level:2
+DS ~ DEVz + cort_concz + DEVz:cort_concz
+'
+fitdev_cort_DS <- sem(model = dev_cort_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_cort_DS, "icc")
+
+## RSA x dheas x DS
+rsa_cort_DS <- '
+level:1
+DS ~ RSAz + cort_concz + RSAz:cort_concz
+
+level:2
+DS ~ RSAz + cort_concz + RSAz:cort_concz
+'
+fitrsa_cort_DS <- sem(model = rsa_cort_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_cort_DS, "icc")
+
+## TB x crp x DS
+tb_crp_DS <- '
+level:1
+DS ~ TBz + crp_concz + TBz:crp_concz
+
+level:2
+DS ~ TBz + crp_concz + TBz:crp_concz
+'
+fittb_crp_DS <- sem(model = tb_crp_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_crp_DS, "icc")
+
+## EXH x crp x DS
+exh_crp_DS <- '
+level:1
+DS ~ EXHz + crp_concz + EXHz:crp_concz
+
+level:2
+DS ~ EXHz + crp_concz + EXHz:crp_concz
+'
+fitexh_crp_DS <- sem(model = exh_crp_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_crp_DS, "icc")
+
+## DEV x crp x DS
+dev_crp_DS <- '
+level:1
+DS ~ DEVz + crp_concz + DEVz:crp_concz
+
+level:2
+DS ~ DEVz + crp_concz + DEVz:crp_concz
+'
+fitdev_crp_DS <- sem(model = dev_crp_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_crp_DS, "icc")
+
+## RSA x crp x DS
+rsa_crp_DS <- '
+level:1
+DS ~ RSAz + crp_concz + RSAz:crp_concz
+
+level:2
+DS ~ RSAz + crp_concz + RSAz:crp_concz
+'
+fitrsa_crp_DS <- sem(model = rsa_crp_DS, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_DS, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_crp_DS, "icc")
+
+
+### Insomnia Symptoms
+## TB x IgA x ISI
+tb_iga_ISI <- '
+level:1
+ISI ~ TBz + iga_flowz + TBz:iga_flowz
+
+level:2
+ISI ~ TBz + iga_flowz + TBz:iga_flowz
+'
+fittb_iga_ISI <- sem(model = tb_iga_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_iga_ISI, "icc")
+
+## EXH x IgA x ISI
+exh_iga_ISI <- '
+level:1
+ISI ~ EXHz + iga_flowz + EXHz:iga_flowz
+
+level:2
+ISI ~ EXHz + iga_flowz + EXHz:iga_flowz
+'
+fitexh_iga_ISI <- sem(model = exh_iga_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_iga_ISI, "icc")
+
+## DEV x IgA x ISI
+dev_iga_ISI <- '
+level:1
+ISI ~ DEVz + iga_flowz + DEVz:iga_flowz
+
+level:2
+ISI ~ DEVz + iga_flowz + DEVz:iga_flowz
+'
+fitdev_iga_ISI <- sem(model = dev_iga_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_iga_ISI, "icc")
+
+## RSA x IgA x ISI
+rsa_iga_ISI <- '
+level:1
+ISI ~ RSAz + iga_flowz + RSAz:iga_flowz
+
+level:2
+ISI ~ RSAz + iga_flowz + RSAz:iga_flowz
+'
+fitrsa_iga_ISI <- sem(model = rsa_iga_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_iga_ISI, "icc")
+
+## TB x testo x ISI
+tb_testo_ISI <- '
+level:1
+ISI ~ TBz + test_concz + TBz:test_concz
+
+level:2
+ISI ~ TBz + test_concz + TBz:test_concz
+'
+fittb_testo_ISI <- sem(model = tb_testo_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_testo_ISI, "icc")
+
+## EXH x testo x ISI
+exh_testo_ISI <- '
+level:1
+ISI ~ EXHz + test_concz + EXHz:test_concz
+
+level:2
+ISI ~ EXHz + test_concz + EXHz:test_concz
+'
+fitexh_testo_ISI <- sem(model = exh_testo_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_testo_ISI, "icc")
+
+## DEV x testo x ISI
+dev_testo_ISI <- '
+level:1
+ISI ~ DEVz + test_concz + DEVz:test_concz
+
+level:2
+ISI ~ DEVz + test_concz + DEVz:test_concz
+'
+fitdev_testo_ISI <- sem(model = dev_testo_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_testo_ISI, "icc")
+
+## RSA x testo x ISI
+rsa_testo_ISI <- '
+level:1
+ISI ~ RSAz + test_concz + RSAz:test_concz
+
+level:2
+ISI ~ RSAz + test_concz + RSAz:test_concz
+'
+fitrsa_testo_ISI <- sem(model = rsa_testo_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_testo_ISI, "icc")
+
+## TB x dheas x ISI
+tb_dheas_ISI <- '
+level:1
+ISI ~ TBz + dheas_flowz + TBz:dheas_flowz
+
+level:2
+ISI ~ TBz + dheas_flowz + TBz:dheas_flowz
+'
+fittb_dheas_ISI <- sem(model = tb_dheas_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_dheas_ISI, "icc")
+
+## EXH x dheas x ISI
+exh_dheas_ISI <- '
+level:1
+ISI ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+
+level:2
+ISI ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+'
+fitexh_dheas_ISI <- sem(model = exh_dheas_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_dheas_ISI, "icc")
+
+## DEV x dheas x ISI
+dev_dheas_ISI <- '
+level:1
+ISI ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+
+level:2
+ISI ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+'
+fitdev_dheas_ISI <- sem(model = dev_dheas_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_dheas_ISI, "icc")
+
+## RSA x dheas x ISI
+rsa_dheas_ISI <- '
+level:1
+ISI ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+
+level:2
+ISI ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+'
+fitrsa_dheas_ISI <- sem(model = rsa_dheas_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_dheas_ISI, "icc")
+
+## TB x cort x ISI
+tb_cort_ISI <- '
+level:1
+ISI ~ TBz + cort_concz + TBz:cort_concz
+
+level:2
+ISI ~ TBz + cort_concz + TBz:cort_concz
+'
+fittb_cort_ISI <- sem(model = tb_cort_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_cort_ISI, "icc")
+
+## EXH x cort x ISI
+exh_cort_ISI <- '
+level:1
+ISI ~ EXHz + cort_concz + EXHz:cort_concz
+
+level:2
+ISI ~ EXHz + cort_concz + EXHz:cort_concz
+'
+fitexh_cort_ISI <- sem(model = exh_cort_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_cort_ISI, "icc")
+
+## DEV x cort x ISI
+dev_cort_ISI <- '
+level:1
+ISI ~ DEVz + cort_concz + DEVz:cort_concz
+
+level:2
+ISI ~ DEVz + cort_concz + DEVz:cort_concz
+'
+fitdev_cort_ISI <- sem(model = dev_cort_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_cort_ISI, "icc")
+
+## RSA x cort x ISI
+rsa_cort_ISI <- '
+level:1
+ISI ~ RSAz + cort_concz + RSAz:cort_concz
+
+level:2
+ISI ~ RSAz + cort_concz + RSAz:cort_concz
+'
+fitrsa_cort_ISI <- sem(model = rsa_cort_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_cort_ISI, "icc")
+
+## TB x crp x ISI
+tb_crp_ISI <- '
+level:1
+ISI ~ TBz + crp_concz + TBz:crp_concz
+
+level:2
+ISI ~ TBz + crp_concz + TBz:crp_concz
+'
+fittb_crp_ISI <- sem(model = tb_crp_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_crp_ISI, "icc")
+
+## EXH x crp x ISI
+exh_crp_ISI <- '
+level:1
+ISI ~ EXHz + crp_concz + EXHz:crp_concz
+
+level:2
+ISI ~ EXHz + crp_concz + EXHz:crp_concz
+'
+fitexh_crp_ISI <- sem(model = exh_crp_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_crp_ISI, "icc")
+
+## DEV x crp x ISI
+dev_crp_ISI <- '
+level:1
+ISI ~ DEVz + crp_concz + DEVz:crp_concz
+
+level:2
+ISI ~ DEVz + crp_concz + DEVz:crp_concz
+'
+fitdev_crp_ISI <- sem(model = dev_crp_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_crp_ISI, "icc")
+
+## RSA x crp x ISI
+rsa_crp_ISI <- '
+level:1
+ISI ~ RSAz + crp_concz + RSAz:crp_concz
+
+level:2
+ISI ~ RSAz + crp_concz + RSAz:crp_concz
+'
+fitrsa_crp_ISI <- sem(model = rsa_crp_ISI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_ISI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_crp_ISI, "icc")
+
+
+### Sleep Disruptions
+## TB x IgA x PSQI
+tb_iga_PSQI <- '
+level:1
+PSQI ~ TBz + iga_flowz + TBz:iga_flowz
+
+level:2
+PSQI ~ TBz + iga_flowz + TBz:iga_flowz
+'
+fittb_iga_PSQI <- sem(model = tb_iga_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_iga_PSQI, "icc")
+
+## EXH x IgA x PSQI
+exh_iga_PSQI <- '
+level:1
+PSQI ~ EXHz + iga_flowz + EXHz:iga_flowz
+
+level:2
+PSQI ~ EXHz + iga_flowz + EXHz:iga_flowz
+'
+fitexh_iga_PSQI <- sem(model = exh_iga_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_iga_PSQI, "icc")
+
+## DEV x IgA x PSQI
+dev_iga_PSQI <- '
+level:1
+PSQI ~ DEVz + iga_flowz + DEVz:iga_flowz
+
+level:2
+PSQI ~ DEVz + iga_flowz + DEVz:iga_flowz
+'
+fitdev_iga_PSQI <- sem(model = dev_iga_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_iga_PSQI, "icc")
+
+## RSA x IgA x PSQI
+rsa_iga_PSQI <- '
+level:1
+PSQI ~ RSAz + iga_flowz + RSAz:iga_flowz
+
+level:2
+PSQI ~ RSAz + iga_flowz + RSAz:iga_flowz
+'
+fitrsa_iga_PSQI <- sem(model = rsa_iga_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_iga_PSQI, "icc")
+
+## TB x testo x PSQI
+tb_testo_PSQI <- '
+level:1
+PSQI ~ TBz + test_concz + TBz:test_concz
+
+level:2
+PSQI ~ TBz + test_concz + TBz:test_concz
+'
+fittb_testo_PSQI <- sem(model = tb_testo_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_testo_PSQI, "icc")
+
+## EXH x testo x PSQI
+exh_testo_PSQI <- '
+level:1
+PSQI ~ EXHz + test_concz + EXHz:test_concz
+
+level:2
+PSQI ~ EXHz + test_concz + EXHz:test_concz
+'
+fitexh_testo_PSQI <- sem(model = exh_testo_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_testo_PSQI, "icc")
+
+## DEV x testo x PSQI
+dev_testo_PSQI <- '
+level:1
+PSQI ~ DEVz + test_concz + DEVz:test_concz
+
+level:2
+PSQI ~ DEVz + test_concz + DEVz:test_concz
+'
+fitdev_testo_PSQI <- sem(model = dev_testo_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_testo_PSQI, "icc")
+
+## RSA x testo x PSQI
+rsa_testo_PSQI <- '
+level:1
+PSQI ~ RSAz + test_concz + RSAz:test_concz
+
+level:2
+PSQI ~ RSAz + test_concz + RSAz:test_concz
+'
+fitrsa_testo_PSQI <- sem(model = rsa_testo_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_testo_PSQI, "icc")
+
+## TB x dheas x PSQI
+tb_dheas_PSQI <- '
+level:1
+PSQI ~ TBz + dheas_flowz + TBz:dheas_flowz
+
+level:2
+PSQI ~ TBz + dheas_flowz + TBz:dheas_flowz
+'
+fittb_dheas_PSQI <- sem(model = tb_dheas_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_dheas_PSQI, "icc")
+
+## EXH x dheas x PSQI
+exh_dheas_PSQI <- '
+level:1
+PSQI ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+
+level:2
+PSQI ~ EXHz + dheas_flowz + EXHz:dheas_flowz
+'
+fitexh_dheas_PSQI <- sem(model = exh_dheas_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_dheas_PSQI, "icc")
+
+## DEV x dheas x PSQI
+dev_dheas_PSQI <- '
+level:1
+PSQI ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+
+level:2
+PSQI ~ DEVz + dheas_flowz + DEVz:dheas_flowz
+'
+fitdev_dheas_PSQI <- sem(model = dev_dheas_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_dheas_PSQI, "icc")
+
+## RSA x dheas x PSQI
+rsa_dheas_PSQI <- '
+level:1
+PSQI ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+
+level:2
+PSQI ~ RSAz + dheas_flowz + RSAz:dheas_flowz
+'
+fitrsa_dheas_PSQI <- sem(model = rsa_dheas_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_dheas_PSQI, "icc")
+
+## TB x cort x PSQI
+tb_cort_PSQI <- '
+level:1
+PSQI ~ TBz + cort_concz + TBz:cort_concz
+
+level:2
+PSQI ~ TBz + cort_concz + TBz:cort_concz
+'
+fittb_cort_PSQI <- sem(model = tb_cort_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_cort_PSQI, "icc")
+
+## EXH x cort x PSQI
+exh_cort_PSQI <- '
+level:1
+PSQI ~ EXHz + cort_concz + EXHz:cort_concz
+
+level:2
+PSQI ~ EXHz + cort_concz + EXHz:cort_concz
+'
+fitexh_cort_PSQI <- sem(model = exh_cort_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_cort_PSQI, "icc")
+
+## DEV x cort x PSQI
+dev_cort_PSQI <- '
+level:1
+PSQI ~ DEVz + cort_concz + DEVz:cort_concz
+
+level:2
+PSQI ~ DEVz + cort_concz + DEVz:cort_concz
+'
+fitdev_cort_PSQI <- sem(model = dev_cort_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_cort_PSQI, "icc")
+
+## RSA x cort x PSQI
+rsa_cort_PSQI <- '
+level:1
+PSQI ~ RSAz + cort_concz + RSAz:cort_concz
+
+level:2
+PSQI ~ RSAz + cort_concz + RSAz:cort_concz
+'
+fitrsa_cort_PSQI <- sem(model = rsa_cort_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_cort_PSQI, "icc")
+
+## TB x crp x PSQI
+tb_crp_PSQI <- '
+level:1
+PSQI ~ TBz + crp_concz + TBz:crp_concz
+
+level:2
+PSQI ~ TBz + crp_concz + TBz:crp_concz
+'
+fittb_crp_PSQI <- sem(model = tb_crp_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_crp_PSQI, "icc")
+
+## EXH x crp x PSQI
+exh_crp_PSQI <- '
+level:1
+PSQI ~ EXHz + crp_concz + EXHz:crp_concz
+
+level:2
+PSQI ~ EXHz + crp_concz + EXHz:crp_concz
+'
+fitexh_crp_PSQI <- sem(model = exh_crp_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_crp_PSQI, "icc")
+
+## DEV x crp x PSQI
+dev_crp_PSQI <- '
+level:1
+PSQI ~ DEVz + crp_concz + DEVz:crp_concz
+
+level:2
+PSQI ~ DEVz + crp_concz + DEVz:crp_concz
+'
+fitdev_crp_PSQI <- sem(model = dev_crp_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_crp_PSQI, "icc")
+
+## RSA x crp x PSQI
+rsa_crp_PSQI <- '
+level:1
+PSQI ~ RSAz + crp_concz + RSAz:crp_concz
+
+level:2
+PSQI ~ RSAz + crp_concz + RSAz:crp_concz
+'
+fitrsa_crp_PSQI <- sem(model = rsa_crp_PSQI, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_PSQI, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_crp_PSQI, "icc")
+``` 

@@ -1,0 +1,3862 @@
+---
+title: "Psych Biomed Analysis"
+author: "H.L. Glandorf"
+date: "2024-04-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Psych x Biomed Analysis
+This code file carries out the multilevel mediation analysis based on participants who completed at least two waves.
+
+These are the objectives:
+- describe demographics of participants
+- carry out assumption checks
+- scaling of variables for later analysis
+- calculate descriptive statistics
+- calculate correlations across all waves
+- create long format of data for multilevel analysis
+- filter data prior to modeling (e.g., insufficient time difference between eating and sampling, injury)
+- multilevel mediation analyses
+
+# Load libraries
+```{r cars}
+library(lavaan)
+library(readxl)
+library(broom)
+library(tidyverse)
+library(ggplot2)
+library(semTools)
+```
+
+# Load data
+```{r data loading}
+dat <- read_csv("redframe.csv")
+```
+
+# Demographics
+The data is separated into the full sample and a sub-sample that was analysed for all biomarkers as the full sample as well as c-reactive protein. As such, demographics are determined for both sample groups.
+```{r demographics}
+##full sample 
+dat %>% 
+  filter(!is.na(sex)) %>%
+  group_by(sex) %>% 
+  summarise(n())
+dat %>%
+  filter(!is.na(age)) %>%
+  summarise(mean(age), sd(age), min(age), max(age))
+dat %>% 
+  filter(!is.na(sport_type)) %>%
+  group_by(sport_type) %>%
+  summarise(n())
+dat %>%
+  filter(!is.na(injury)) %>%
+  group_by(injury) %>%
+  summarise(n())
+dat %>%
+  filter(!is.na(comp_experience)) %>%
+  summarise(mean(comp_experience), sd(comp_experience), min(comp_experience), max(comp_experience))
+dat %>%
+  filter(!is.na(t1trainload)) %>%
+  group_by(t1season) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t2trainload)) %>%
+  group_by(t2season) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t3trainload)) %>%
+  group_by(t3season) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+##individual athletes
+dat %>%
+  filter(!is.na(t1trainload), sport_type==0) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t2trainload), sport_type==0) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t3trainload), sport_type==0) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+dat %>%
+  filter(!is.na(t1trainload), sport_type==0) %>%
+  group_by(t1season) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t2trainload), sport_type==0) %>%
+  group_by(t2season) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t3trainload), sport_type==0) %>%
+  group_by(t3season) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+##team athletes
+dat %>%
+  filter(!is.na(t1trainload), sport_type==1) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t2trainload), sport_type==1) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t3trainload), sport_type==1) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+dat %>%
+  filter(!is.na(t1trainload), sport_type==1) %>%
+  group_by(t1season) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t2trainload), sport_type==1) %>%
+  group_by(t2season) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t3trainload), sport_type==1) %>%
+  group_by(t3season) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+##competition level
+dat %>%
+  filter(!is.na(comp_level)) %>%
+  group_by(comp_level) %>%
+  summarise(n())
+##seasons
+dat %>% 
+  filter(!is.na(t1season)) %>%
+  group_by(t1season) %>%
+  summarise(n())
+dat %>% 
+  filter(!is.na(t2season)) %>%
+  group_by(t2season) %>%
+  summarise(n())
+dat %>% 
+  filter(!is.na(t3season)) %>%
+  group_by(t3season) %>%
+  summarise(n())
+##medication
+dat %>% 
+  filter(!is.na(t1meds)) %>%
+  group_by(t1meds) %>%
+  summarise(n())
+dat %>% 
+  filter(!is.na(t2meds)) %>%
+  group_by(t2meds) %>%
+  summarise(n())
+dat %>% 
+  filter(!is.na(t3meds)) %>%
+  group_by(t3meds) %>%
+  summarise(n())
+
+##crp sample
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(sex) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  summarise(mean(age), sd(age), min(age), max(age))
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(sport_type) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(injury) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  summarise(mean(comp_experience), sd(comp_experience), min(comp_experience), max(comp_experience))
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(comp_level) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(t1season) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(t2season) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  group_by(t3season) %>%
+  summarise(n())
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  filter(!is.na(t1trainload)) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  filter(!is.na(t2trainload)) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>% filter(!is.na(t1crp_conc)) %>% 
+  filter(!is.na(t3trainload)) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+##team athletes
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t1trainload), sport_type==1) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t2trainload), sport_type==1) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t3trainload), sport_type==1) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+##individual athletes
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t1trainload), sport_type==0) %>%
+  summarise(mean(t1trainload), sd(t1trainload), min(t1trainload), max(t1trainload))
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t2trainload), sport_type==0) %>%
+  summarise(mean(t2trainload), sd(t2trainload), min(t2trainload), max(t2trainload))
+dat %>%
+  filter(!is.na(t1crp_conc), !is.na(t3trainload), sport_type==0) %>%
+  summarise(mean(t3trainload), sd(t3trainload), min(t3trainload), max(t3trainload))
+```
+
+# Assumption Checks
+Carrying out visual assumption checks to check for normality here.
+```{r distributions}
+# wave 1
+ggplot(dat, aes(t1TB))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1EXH))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1DEV))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1RSA))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1PS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1ISI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1PSQI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1DS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1iga_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1test_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1dheas_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1cort_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t1crp_conc))+
+  geom_density()+
+  theme_bw() 
+
+# wave 2
+ggplot(dat, aes(t2TB))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2EXH))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2DEV))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2RSA))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2PS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2ISI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2PSQI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2DS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2iga_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2test_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2dheas_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2cort_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t2crp_conc))+
+  geom_density()+
+  theme_bw() 
+
+# wave 3
+ggplot(dat, aes(t3TB))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3EXH))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3DEV))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3RSA))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3PS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3ISI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3PSQI))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3DS))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3iga_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3test_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3dheas_flow))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3cort_conc))+
+  geom_density()+
+  theme_bw() 
+ggplot(dat, aes(t3crp_conc))+
+  geom_density()+
+  theme_bw() 
+```
+
+# Adding time difference and scaling of variables
+```{r scaling and outlier screening}
+##add in time difference between time of saliva sample and time eaten
+dat <- dat %>% mutate(t1timediff = t1time-t1timeeat,
+               t2timediff = t2time-t2timeeat,
+               t3timediff = t3time-t3timeeat)
+##calculating z-scores
+datz <- dat %>% 
+  mutate(t1TB_z = scale(t1TB), 
+         t1EXH_z = scale(t1EXH),
+         t1DEV_z = scale(t1DEV),
+         t1RSA_z = scale(t1RSA),
+         t1PS_z = scale(t1PS),
+         t1DS_z = scale(t1DS),
+         t1PSQI_z = scale(t1PSQI),
+         t1ISI_z = scale(t1ISI),
+         t1iga_z = scale(t1iga_flow),
+         t1testo_z = scale(t1test_conc),
+         t1dheas_z = scale(t1dheas_flow),
+         t1cort_z = scale(t1cort_conc),
+         t1crp_z = scale(t1crp_conc),
+         t1timediff_z = scale(t1timediff),
+         t2TB_z = scale(t2TB), 
+         t2EXH_z = scale(t2EXH),
+         t2DEV_z = scale(t2DEV),
+         t2RSA_z = scale(t2RSA),
+         t2PS_z = scale(t2PS),
+         t2DS_z = scale(t2DS),
+         t2PSQI_z = scale(t2PSQI),
+         t2ISI_z = scale(t2ISI),
+         t2iga_z = scale(t2iga_flow),
+         t2testo_z = scale(t2test_conc),
+         t2dheas_z = scale(t2dheas_flow),
+         t2cort_z = scale(t2cort_conc),
+         t2crp_z = scale(t2crp_conc),
+         t2timediff_z = scale(t2timediff),
+         t3TB_z = scale(t3TB), 
+         t3EXH_z = scale(t3EXH),
+         t3DEV_z = scale(t3DEV),
+         t3RSA_z = scale(t3RSA),
+         t3PS_z = scale(t3PS),
+         t3DS_z = scale(t3DS),
+         t3PSQI_z = scale(t3PSQI),
+         t3ISI_z = scale(t3ISI),
+         t3iga_z = scale(t3iga_flow),
+         t3testo_z = scale(t3test_conc),
+         t3dheas_z = scale(t3dheas_flow),
+         t3cort_z = scale(t3cort_conc),
+         t3crp_z = scale(t3crp_conc),
+         t3timediff_z = scale(t3timediff))
+
+##replacing extremes with NAs
+#wave 1
+datz$t1TB <- replace(datz$t1TB, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH <- replace(datz$t1EXH, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV <- replace(datz$t1DEV, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA <- replace(datz$t1RSA, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS <- replace(datz$t1PS, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS <- replace(datz$t1DS, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI <- replace(datz$t1PSQI, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI <- replace(datz$t1ISI, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_flow <- replace(datz$t1iga_flow, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1test_conc <- replace(datz$t1test_conc, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_flow <- replace(datz$t1dheas_flow, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_conc <- replace(datz$t1cort_conc, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_conc <- replace(datz$t1crp_conc, abs(datz$t1crp_z) > 3.29, NA)
+
+##wave1 for z-values
+datz$t1TB_z <- replace(datz$t1TB_z, abs(datz$t1TB_z) > 3.29, NA)
+datz$t1EXH_z <- replace(datz$t1EXH_z, abs(datz$t1EXH_z) > 3.29, NA)
+datz$t1DEV_z <- replace(datz$t1DEV_z, abs(datz$t1DEV_z) > 3.29, NA)
+datz$t1RSA_z <- replace(datz$t1RSA_z, abs(datz$t1RSA_z) > 3.29, NA)
+datz$t1PS_z <- replace(datz$t1PS_z, abs(datz$t1PS_z) > 3.29, NA)
+datz$t1DS_z <- replace(datz$t1DS_z, abs(datz$t1DS_z) > 3.29, NA)
+datz$t1PSQI_z <- replace(datz$t1PSQI_z, abs(datz$t1PSQI_z) > 3.29, NA)
+datz$t1ISI_z <- replace(datz$t1ISI_z, abs(datz$t1ISI_z) > 3.29, NA)
+datz$t1iga_z <- replace(datz$t1iga_z, abs(datz$t1iga_z) > 3.29, NA)
+datz$t1testo_z <- replace(datz$t1testo_z, abs(datz$t1testo_z) > 3.29, NA)
+datz$t1dheas_z <- replace(datz$t1dheas_z, abs(datz$t1dheas_z) > 3.29, NA)
+datz$t1cort_z <- replace(datz$t1cort_z, abs(datz$t1cort_z) > 3.29, NA)
+datz$t1crp_z <- replace(datz$t1crp_z, abs(datz$t1crp_z) > 3.29, NA)
+
+#wave 2
+datz$t2TB <- replace(datz$t2TB, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH <- replace(datz$t2EXH, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV <- replace(datz$t2DEV, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA <- replace(datz$t2RSA, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS <- replace(datz$t2PS, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS <- replace(datz$t2DS, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI <- replace(datz$t2PSQI, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI <- replace(datz$t2ISI, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_flow <- replace(datz$t2iga_flow, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2test_conc <- replace(datz$t2test_conc, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_flow <- replace(datz$t2dheas_flow, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_conc <- replace(datz$t2cort_conc, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_conc <- replace(datz$t2crp_conc, abs(datz$t2crp_z) > 3.29, NA)
+
+##wave2 for z-values
+datz$t2TB_z <- replace(datz$t2TB_z, abs(datz$t2TB_z) > 3.29, NA)
+datz$t2EXH_z <- replace(datz$t2EXH_z, abs(datz$t2EXH_z) > 3.29, NA)
+datz$t2DEV_z <- replace(datz$t2DEV_z, abs(datz$t2DEV_z) > 3.29, NA)
+datz$t2RSA_z <- replace(datz$t2RSA_z, abs(datz$t2RSA_z) > 3.29, NA)
+datz$t2PS_z <- replace(datz$t2PS_z, abs(datz$t2PS_z) > 3.29, NA)
+datz$t2DS_z <- replace(datz$t2DS_z, abs(datz$t2DS_z) > 3.29, NA)
+datz$t2PSQI_z <- replace(datz$t2PSQI_z, abs(datz$t2PSQI_z) > 3.29, NA)
+datz$t2ISI_z <- replace(datz$t2ISI_z, abs(datz$t2ISI_z) > 3.29, NA)
+datz$t2iga_z <- replace(datz$t2iga_z, abs(datz$t2iga_z) > 3.29, NA)
+datz$t2testo_z <- replace(datz$t2testo_z, abs(datz$t2testo_z) > 3.29, NA)
+datz$t2dheas_z <- replace(datz$t2dheas_z, abs(datz$t2dheas_z) > 3.29, NA)
+datz$t2cort_z <- replace(datz$t2cort_z, abs(datz$t2cort_z) > 3.29, NA)
+datz$t2crp_z <- replace(datz$t2crp_z, abs(datz$t2crp_z) > 3.29, NA)
+
+#wave 3
+datz$t3TB <- replace(datz$t3TB, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH <- replace(datz$t3EXH, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV <- replace(datz$t3DEV, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA <- replace(datz$t3RSA, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS <- replace(datz$t3PS, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS <- replace(datz$t3DS, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI <- replace(datz$t3PSQI, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI <- replace(datz$t3ISI, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_flow <- replace(datz$t3iga_flow, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3test_conc <- replace(datz$t3test_conc, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_flow <- replace(datz$t3dheas_flow, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_conc <- replace(datz$t3cort_conc, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_conc <- replace(datz$t3crp_conc, abs(datz$t3crp_z) > 3.29, NA)
+
+##wave3 for z-values
+datz$t3TB_z <- replace(datz$t3TB_z, abs(datz$t3TB_z) > 3.29, NA)
+datz$t3EXH_z <- replace(datz$t3EXH_z, abs(datz$t3EXH_z) > 3.29, NA)
+datz$t3DEV_z <- replace(datz$t3DEV_z, abs(datz$t3DEV_z) > 3.29, NA)
+datz$t3RSA_z <- replace(datz$t3RSA_z, abs(datz$t3RSA_z) > 3.29, NA)
+datz$t3PS_z <- replace(datz$t3PS_z, abs(datz$t3PS_z) > 3.29, NA)
+datz$t3DS_z <- replace(datz$t3DS_z, abs(datz$t3DS_z) > 3.29, NA)
+datz$t3PSQI_z <- replace(datz$t3PSQI_z, abs(datz$t3PSQI_z) > 3.29, NA)
+datz$t3ISI_z <- replace(datz$t3ISI_z, abs(datz$t3ISI_z) > 3.29, NA)
+datz$t3iga_z <- replace(datz$t3iga_z, abs(datz$t3iga_z) > 3.29, NA)
+datz$t3testo_z <- replace(datz$t3testo_z, abs(datz$t3testo_z) > 3.29, NA)
+datz$t3dheas_z <- replace(datz$t3dheas_z, abs(datz$t3dheas_z) > 3.29, NA)
+datz$t3cort_z <- replace(datz$t3cort_z, abs(datz$t3cort_z) > 3.29, NA)
+datz$t3crp_z <- replace(datz$t3crp_z, abs(datz$t3crp_z) > 3.29, NA)
+```
+
+# Descriptive statistics
+Since visual inspection showed deviation from normality, robust statistics such as trimmed means and mads are used here. 
+```{r descriptives}
+##Wave 1
+#burnout
+datz %>% 
+  filter(!is.na(t1TBd))%>%
+  summarise(mean(t1TBd, trim =.2), sd(t1TBd), min(t1TBd), max(t1TBd),
+            mean(t1EXHd, trim =.2), sd(t1EXHd), min(t1EXHd), max(t1EXHd),
+            mean(t1DEVd, trim =.2), sd(t1DEVd), min(t1DEVd), max(t1DEVd),
+            mean(t1RSAd, trim =.2), sd(t1RSAd), min(t1RSAd), max(t1RSAd))
+datz %>% 
+  filter(!is.na(t3TBd))%>%
+  summarise(n())
+datz %>% 
+  filter(!is.na(t3EXHd))%>%
+  summarise(n())
+datz %>% 
+  filter(!is.na(t3DEVd))%>%
+  summarise(n())
+datz %>% 
+  filter(!is.na(t3RSAd))%>%
+  summarise(n())
+#physical symptoms
+datz %>% 
+  filter(!is.na(t1PSd))%>%
+  summarise(mean(t1PSd, trim =.2), sd(t1PSd), min(t1PSd), max(t1PSd))
+datz %>% 
+  filter(!is.na(t3PSd))%>%
+  summarise(n())
+#sleep
+datz %>% 
+  filter(!is.na(t1ISI))%>%
+  summarise(mean(t1ISI, trim =.2), sd(t1ISI), min(t1ISI), max(t1ISI))
+datz %>% 
+  filter(!is.na(t1PSQI))%>%
+  summarise(mean(t1PSQI, trim =.2), sd(t1PSQI), min(t1PSQI), max(t1PSQI))
+datz %>% 
+  filter(!is.na(t3ISI))%>%
+  summarise(n())
+datz %>% 
+  filter(!is.na(t3PSQI))%>%
+  summarise(n())
+#depressive symptoms
+datz %>% 
+  filter(!is.na(t1DS))%>%
+  summarise(mean(t1DS, trim =.2), sd(t1DS), min(t1DS), max(t1DS))
+datz %>% 
+  filter(!is.na(t3DS))%>%
+  summarise(n())
+#iga flow rate
+datz %>% 
+  filter(!is.na(t1iga_flow))%>%
+  summarise(mean(t1iga_flow, trim =.2), sd(t1iga_flow), min(t1iga_flow), max(t1iga_flow))
+datz %>% 
+  filter(!is.na(t3iga_flow))%>%
+  summarise(n())
+#testosterone conc
+datz %>% 
+  filter(!is.na(t1test_conc))%>%
+  summarise(mean(t1test_conc, trim =.2), sd(t1test_conc), min(t1test_conc), max(t1test_conc))
+datz %>% 
+  filter(!is.na(t3test_conc))%>%
+  summarise(n())
+#DHEA-S flow rate
+datz %>%
+  filter(!is.na(t1dheas_flow)) %>%
+  summarise(mean(t1dheas_flow, trim =.2), sd(t1dheas_flow), min(t1dheas_flow), max(t1dheas_flow))
+datz %>% 
+  filter(!is.na(t3dheas_flow))%>%
+  summarise(n())
+#cortisol conc
+datz %>% 
+  filter(!is.na(t1cort_conc))%>%
+  summarise(mean(t1cort_conc, trim =.2), sd(t1cort_conc), min(t1cort_conc), max(t1cort_conc))
+datz %>% 
+  filter(!is.na(t3cort_conc))%>%
+  summarise(n())
+#crp conc
+datz %>% 
+  filter(!is.na(t1crp_conc))%>%
+  summarise(mean(t1crp_conc, trim =.2), sd(t1crp_conc), min(t1crp_conc), max(t1crp_conc))
+datz %>% 
+  filter(!is.na(t2crp_conc))%>%
+  summarise(n())
+##mads
+mad(datz$t1TBd, na.rm = T)
+mad(datz$t1EXHd, na.rm = T)
+mad(datz$t1DEVd, na.rm = T)
+mad(datz$t1RSAd, na.rm = T)
+mad(datz$t1PSd, na.rm = T)
+mad(datz$t1DS, na.rm = T)
+mad(datz$t1ISI, na.rm = T)
+mad(datz$t1PSQI, na.rm = T)
+mad(datz$t1iga_flow, na.rm = T)
+mad(datz$t1test_conc, na.rm = T)
+mad(datz$t1dheas_flow, na.rm = T)
+mad(datz$t1cort_conc, na.rm = T)
+mad(datz$t1crp_conc, na.rm = T)
+
+##Wave 2
+#burnout
+datz %>% 
+  filter(!is.na(t2TBd))%>%
+  summarise(mean(t2TBd, trim =.2), sd(t2TBd), min(t2TBd), max(t2TBd),
+            mean(t2EXHd, trim =.2), sd(t2EXHd), min(t2EXHd), max(t2EXHd),
+            mean(t2DEVd, trim =.2), sd(t2DEVd), min(t2DEVd), max(t2DEVd),
+            mean(t2RSAd, trim =.2), sd(t2RSAd), min(t2RSAd), max(t2RSAd))
+#physical symptoms
+datz %>% 
+  filter(!is.na(t2PSd))%>%
+  summarise(mean(t2PSd, trim =.2), sd(t2PSd), min(t2PSd), max(t2PSd))
+#sleep
+datz %>% 
+  filter(!is.na(t2ISI))%>%
+  summarise(mean(t2ISI, trim =.2), sd(t2ISI), min(t2ISI), max(t2ISI))
+datz %>% 
+  filter(!is.na(t2PSQI))%>%
+  summarise(mean(t2PSQI, trim =.2), sd(t2PSQI), min(t2PSQI), max(t2PSQI))
+#depressive symptoms
+datz %>% 
+  filter(!is.na(t2DS))%>%
+  summarise(mean(t2DS, trim =.2), sd(t2DS), min(t2DS), max(t2DS))
+#iga flow rate
+datz %>% 
+  filter(!is.na(t2iga_flow))%>%
+  summarise(mean(t2iga_flow, trim =.2), sd(t2iga_flow), min(t2iga_flow), max(t2iga_flow))
+#testosterone conc
+datz %>% 
+  filter(!is.na(t2test_conc))%>%
+  summarise(mean(t2test_conc, trim =.2), sd(t2test_conc), min(t2test_conc), max(t2test_conc))
+#DHEA-S flow rate
+datz %>%
+  filter(!is.na(t2dheas_flow)) %>%
+  summarise(mean(t2dheas_flow, trim =.2), sd(t2dheas_flow), min(t2dheas_flow), max(t2dheas_flow))
+#cortisol conc
+datz %>% 
+  filter(!is.na(t2cort_conc))%>%
+  summarise(mean(t2cort_conc, trim =.2), sd(t2cort_conc), min(t2cort_conc), max(t2cort_conc))
+#crp conc
+datz %>% 
+  filter(!is.na(t2crp_conc))%>%
+  summarise(mean(t2crp_conc, trim =.2), sd(t2crp_conc), min(t2crp_conc), max(t2crp_conc))
+
+##mads
+mad(datz$t2TBd, na.rm = T)
+mad(datz$t2EXHd, na.rm = T)
+mad(datz$t2DEVd, na.rm = T)
+mad(datz$t2RSAd, na.rm = T)
+mad(datz$t2PSd, na.rm = T)
+mad(datz$t2DS, na.rm = T)
+mad(datz$t2ISI, na.rm = T)
+mad(datz$t2PSQI, na.rm = T)
+mad(datz$t2iga_flow, na.rm = T)
+mad(datz$t2test_conc, na.rm = T)
+mad(datz$t2dheas_flow, na.rm = T)
+mad(datz$t2cort_conc, na.rm = T)
+mad(datz$t2crp_conc, na.rm = T)
+
+#Wave 3
+#burnout
+datz %>% 
+  filter(!is.na(t3TBd))%>%
+  summarise(mean(t3TBd, trim =.2), sd(t3TBd), min(t3TBd), max(t3TBd),
+            mean(t3EXHd, trim =.2), sd(t3EXHd), min(t3EXHd), max(t3EXHd),
+            mean(t3DEVd, trim =.2), sd(t3DEVd), min(t3DEVd), max(t3DEVd),
+            mean(t3RSAd, trim =.2), sd(t3RSAd), min(t3RSAd), max(t3RSAd))
+#physical symptoms
+datz %>% 
+  filter(!is.na(t3PSd))%>%
+  summarise(mean(t3PSd, trim =.2), sd(t3PSd), min(t3PSd), max(t3PSd))
+#sleep
+datz %>% 
+  filter(!is.na(t3ISI))%>%
+  summarise(mean(t3ISI, trim =.2), sd(t3ISI), min(t3ISI), max(t3ISI))
+datz %>% 
+  filter(!is.na(t3PSQI))%>%
+  summarise(mean(t3PSQI, trim =.2), sd(t3PSQI), min(t3PSQI), max(t3PSQI))
+#depressive symptoms
+datz %>% 
+  filter(!is.na(t3DS))%>%
+  summarise(mean(t3DS, trim =.2), sd(t3DS), min(t3DS), max(t3DS))
+#iga flow rate
+datz %>% 
+  filter(!is.na(t3iga_flow))%>%
+  summarise(mean(t3iga_flow, trim =.2), sd(t3iga_flow), min(t3iga_flow), max(t3iga_flow))
+#testosterone conc
+datz %>% 
+  filter(!is.na(t3test_conc))%>%
+  summarise(mean(t3test_conc, trim =.2), sd(t3test_conc), min(t3test_conc), max(t3test_conc))
+#DHEA-S flow rate
+datz %>%
+  filter(!is.na(t3dheas_flow)) %>%
+  summarise(mean(t3dheas_flow, trim =.2), sd(t3dheas_flow), min(t3dheas_flow), max(t3dheas_flow))
+#cortisol conc
+datz %>% 
+  filter(!is.na(t3cort_conc))%>%
+  summarise(mean(t3cort_conc, trim =.2), sd(t3cort_conc), min(t3cort_conc), max(t3cort_conc))
+#crp conc
+datz %>% 
+  filter(!is.na(t3crp_conc))%>%
+  summarise(mean(t3crp_conc, trim =.2), sd(t3crp_conc), min(t3crp_conc), max(t3crp_conc))
+
+##mads
+mad(datz$t3TBd, na.rm = T)
+mad(datz$t3EXHd, na.rm = T)
+mad(datz$t3DEVd, na.rm = T)
+mad(datz$t3RSAd, na.rm = T)
+mad(datz$t3PSd, na.rm = T)
+mad(datz$t3DS, na.rm = T)
+mad(datz$t3ISI, na.rm = T)
+mad(datz$t3PSQI, na.rm = T)
+mad(datz$t3iga_flow, na.rm = T)
+mad(datz$t3test_conc, na.rm = T)
+mad(datz$t3dheas_flow, na.rm = T)
+mad(datz$t3cort_conc, na.rm = T)
+mad(datz$t3crp_conc, na.rm = T)
+
+#time difference
+datz %>% 
+  summarise(mean(t1timediff, time=.2), sd(t1timediff), min(t1timediff), max(t1timediff),
+            mean(t2timediff, time=.2), sd(t2timediff), min(t2timediff), max(t2timediff),
+            mean(t3timediff, time=.2), sd(t3timediff), min(t3timediff), max(t3timediff))
+```
+
+# Correlations
+Spearman correlations are determined here for most robust calculation, but the method can be easily switched via Edit -> Replace and Find -> Replace "spearman" with "pearson". 
+```{r}
+#wave 1 across
+cor.test(datz$t1TB, datz$t1EXH, method = "spearman")
+cor.test(datz$t1TB, datz$t1DEV, method = "spearman")
+cor.test(datz$t1TB, datz$t1RSA, method = "spearman")
+cor.test(datz$t1TB, datz$t1DS, method = "spearman")
+cor.test(datz$t1TB, datz$t1PS, method = "spearman")
+cor.test(datz$t1TB, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1TB, datz$t1ISI, method = "spearman")
+cor.test(datz$t1TB, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t1DEV, method = "spearman")
+cor.test(datz$t1EXH, datz$t1RSA, method = "spearman")
+cor.test(datz$t1EXH, datz$t1DS, method = "spearman")
+cor.test(datz$t1EXH, datz$t1PS, method = "spearman")
+cor.test(datz$t1EXH, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1EXH, datz$t1ISI, method = "spearman")
+cor.test(datz$t1EXH, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t1RSA, method = "spearman")
+cor.test(datz$t1DEV, datz$t1DS, method = "spearman")
+cor.test(datz$t1DEV, datz$t1PS, method = "spearman")
+cor.test(datz$t1DEV, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1DEV, datz$t1ISI, method = "spearman")
+cor.test(datz$t1DEV, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t1ISI, method = "spearman")
+cor.test(datz$t1RSA, datz$t1DS, method = "spearman")
+cor.test(datz$t1RSA, datz$t1PS, method = "spearman")
+cor.test(datz$t1RSA, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1RSA, datz$t1ISI, method = "spearman")
+cor.test(datz$t1RSA, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t1PS, method = "spearman")
+cor.test(datz$t1DS, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1DS, datz$t1ISI, method = "spearman")
+cor.test(datz$t1DS, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t1PSQI, method = "spearman")
+cor.test(datz$t1PS, datz$t1ISI, method = "spearman")
+cor.test(datz$t1PS, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1ISI, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t1iga_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t1test_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t1dheas_flow, method = "spearman")
+cor.test(datz$t1test_conc, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t1cort_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t1crp_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t1crp_conc, method = "spearman")
+
+##wave 2 across
+cor.test(datz$t2TB, datz$t2EXH, method = "spearman")
+cor.test(datz$t2TB, datz$t2DEV, method = "spearman")
+cor.test(datz$t2TB, datz$t2RSA, method = "spearman")
+cor.test(datz$t2TB, datz$t2DS, method = "spearman")
+cor.test(datz$t2TB, datz$t2PS, method = "spearman")
+cor.test(datz$t2TB, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2TB, datz$t2ISI, method = "spearman")
+cor.test(datz$t2TB, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2TB, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2TB, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2TB, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2TB, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t2DEV, method = "spearman")
+cor.test(datz$t2EXH, datz$t2RSA, method = "spearman")
+cor.test(datz$t2EXH, datz$t2DS, method = "spearman")
+cor.test(datz$t2EXH, datz$t2PS, method = "spearman")
+cor.test(datz$t2EXH, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2EXH, datz$t2ISI, method = "spearman")
+cor.test(datz$t2EXH, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2EXH, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2EXH, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t2RSA, method = "spearman")
+cor.test(datz$t2DEV, datz$t2DS, method = "spearman")
+cor.test(datz$t2DEV, datz$t2PS, method = "spearman")
+cor.test(datz$t2DEV, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2DEV, datz$t2ISI, method = "spearman")
+cor.test(datz$t2DEV, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2DEV, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2DEV, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t2ISI, method = "spearman")
+cor.test(datz$t2RSA, datz$t2DS, method = "spearman")
+cor.test(datz$t2RSA, datz$t2PS, method = "spearman")
+cor.test(datz$t2RSA, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2RSA, datz$t2ISI, method = "spearman")
+cor.test(datz$t2RSA, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2RSA, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2RSA, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2RSA, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2RSA, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t2PS, method = "spearman")
+cor.test(datz$t2DS, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2DS, datz$t2ISI, method = "spearman")
+cor.test(datz$t2DS, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2DS, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2DS, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t2PSQI, method = "spearman")
+cor.test(datz$t2PS, datz$t2ISI, method = "spearman")
+cor.test(datz$t2PS, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2PS, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2PS, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2ISI, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t2ISI, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2ISI, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t2test_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2test_conc, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t2test_conc, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2test_conc, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t2crp_conc, method = "spearman")
+
+#wave 3 across
+cor.test(datz$t3TB, datz$t3EXH, method = "spearman")
+cor.test(datz$t3TB, datz$t3DEV, method = "spearman")
+cor.test(datz$t3TB, datz$t3RSA, method = "spearman")
+cor.test(datz$t3TB, datz$t3DS, method = "spearman")
+cor.test(datz$t3TB, datz$t3PS, method = "spearman")
+cor.test(datz$t3TB, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3TB, datz$t3ISI, method = "spearman")
+cor.test(datz$t3TB, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3TB, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3TB, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3TB, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3TB, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3EXH, datz$t3DEV, method = "spearman")
+cor.test(datz$t3EXH, datz$t3RSA, method = "spearman")
+cor.test(datz$t3EXH, datz$t3DS, method = "spearman")
+cor.test(datz$t3EXH, datz$t3PS, method = "spearman")
+cor.test(datz$t3EXH, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3EXH, datz$t3ISI, method = "spearman")
+cor.test(datz$t3EXH, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3EXH, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3EXH, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3EXH, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3EXH, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3DEV, datz$t3RSA, method = "spearman")
+cor.test(datz$t3DEV, datz$t3DS, method = "spearman")
+cor.test(datz$t3DEV, datz$t3PS, method = "spearman")
+cor.test(datz$t3DEV, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3DEV, datz$t3ISI, method = "spearman")
+cor.test(datz$t3DEV, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3DEV, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3DEV, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3DEV, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3DEV, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3DEV, datz$t3ISI, method = "spearman")
+cor.test(datz$t3RSA, datz$t3DS, method = "spearman")
+cor.test(datz$t3RSA, datz$t3PS, method = "spearman")
+cor.test(datz$t3RSA, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3RSA, datz$t3ISI, method = "spearman")
+cor.test(datz$t3RSA, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3RSA, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3RSA, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3RSA, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3RSA, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3DS, datz$t3PS, method = "spearman")
+cor.test(datz$t3DS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3DS, datz$t3ISI, method = "spearman")
+cor.test(datz$t3DS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3DS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3DS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3DS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3DS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3PS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t3PS, datz$t3ISI, method = "spearman")
+cor.test(datz$t3PS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3PS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3PS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3PS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3PS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3ISI, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3PSQI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3ISI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t3ISI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3ISI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3ISI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3ISI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3iga_flow, datz$t3test_conc, method = "spearman")
+cor.test(datz$t3iga_flow, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3iga_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3iga_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3test_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t3test_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3test_conc, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3dheas_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t3dheas_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t3cort_conc, datz$t3crp_conc, method = "spearman")
+
+
+#wave 1 to wave 2
+cor.test(datz$t1TB, datz$t2TB, method = "spearman")
+cor.test(datz$t1TB, datz$t2EXH, method = "spearman")
+cor.test(datz$t1TB, datz$t2DEV, method = "spearman")
+cor.test(datz$t1TB, datz$t2RSA, method = "spearman")
+cor.test(datz$t1TB, datz$t2DS, method = "spearman")
+cor.test(datz$t1TB, datz$t2PS, method = "spearman")
+cor.test(datz$t1TB, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1TB, datz$t2ISI, method = "spearman")
+cor.test(datz$t1TB, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t2TB, method = "spearman")
+cor.test(datz$t1EXH, datz$t2EXH, method = "spearman")
+cor.test(datz$t1EXH, datz$t2DEV, method = "spearman")
+cor.test(datz$t1EXH, datz$t2RSA, method = "spearman")
+cor.test(datz$t1EXH, datz$t2DS, method = "spearman")
+cor.test(datz$t1EXH, datz$t2PS, method = "spearman")
+cor.test(datz$t1EXH, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1EXH, datz$t2ISI, method = "spearman")
+cor.test(datz$t1EXH, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t2TB, method = "spearman")
+cor.test(datz$t1DEV, datz$t2EXH, method = "spearman")
+cor.test(datz$t1DEV, datz$t2DEV, method = "spearman")
+cor.test(datz$t1DEV, datz$t2RSA, method = "spearman")
+cor.test(datz$t1DEV, datz$t2DS, method = "spearman")
+cor.test(datz$t1DEV, datz$t2PS, method = "spearman")
+cor.test(datz$t1DEV, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1DEV, datz$t2ISI, method = "spearman")
+cor.test(datz$t1DEV, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t2TB, method = "spearman")
+cor.test(datz$t1RSA, datz$t2EXH, method = "spearman")
+cor.test(datz$t1RSA, datz$t2DEV, method = "spearman")
+cor.test(datz$t1RSA, datz$t2RSA, method = "spearman")
+cor.test(datz$t1RSA, datz$t2DS, method = "spearman")
+cor.test(datz$t1RSA, datz$t2PS, method = "spearman")
+cor.test(datz$t1RSA, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1RSA, datz$t2ISI, method = "spearman")
+cor.test(datz$t1RSA, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t2TB, method = "spearman")
+cor.test(datz$t1DS, datz$t2EXH, method = "spearman")
+cor.test(datz$t1DS, datz$t2DEV, method = "spearman")
+cor.test(datz$t1DS, datz$t2RSA, method = "spearman")
+cor.test(datz$t1DS, datz$t2DS, method = "spearman")
+cor.test(datz$t1DS, datz$t2PS, method = "spearman")
+cor.test(datz$t1DS, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1DS, datz$t2ISI, method = "spearman")
+cor.test(datz$t1DS, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t2TB, method = "spearman")
+cor.test(datz$t1PS, datz$t2EXH, method = "spearman")
+cor.test(datz$t1PS, datz$t2DEV, method = "spearman")
+cor.test(datz$t1PS, datz$t2RSA, method = "spearman")
+cor.test(datz$t1PS, datz$t2DS, method = "spearman")
+cor.test(datz$t1PS, datz$t2PS, method = "spearman")
+cor.test(datz$t1PS, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1PS, datz$t2ISI, method = "spearman")
+cor.test(datz$t1PS, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t2TB, method = "spearman")
+cor.test(datz$t1ISI, datz$t2EXH, method = "spearman")
+cor.test(datz$t1ISI, datz$t2DEV, method = "spearman")
+cor.test(datz$t1ISI, datz$t2RSA, method = "spearman")
+cor.test(datz$t1ISI, datz$t2DS, method = "spearman")
+cor.test(datz$t1ISI, datz$t2PS, method = "spearman")
+cor.test(datz$t1ISI, datz$t2ISI, method = "spearman")
+cor.test(datz$t1ISI, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1ISI, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2TB, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2EXH, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2DEV, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2RSA, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2DS, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2PS, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2ISI, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2TB, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2EXH, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2DEV, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2RSA, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2DS, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2PS, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2ISI, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2TB, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2EXH, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2DEV, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2RSA, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2DS, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2PS, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2ISI, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2TB, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2EXH, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2DEV, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2RSA, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2DS, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2PS, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2ISI, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2TB, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2EXH, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2DEV, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2RSA, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2DS, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2PS, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2ISI, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t2crp_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2TB, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2EXH, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2DEV, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2RSA, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2DS, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2PS, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2ISI, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2PSQI, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2iga_flow, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2test_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2dheas_flow, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2cort_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t2crp_conc, method = "spearman")
+
+#wave 1 to wave 3
+cor.test(datz$t1TB, datz$t3TB, method = "spearman")
+cor.test(datz$t1TB, datz$t3EXH, method = "spearman")
+cor.test(datz$t1TB, datz$t3DEV, method = "spearman")
+cor.test(datz$t1TB, datz$t3RSA, method = "spearman")
+cor.test(datz$t1TB, datz$t3DS, method = "spearman")
+cor.test(datz$t1TB, datz$t3PS, method = "spearman")
+cor.test(datz$t1TB, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1TB, datz$t3ISI, method = "spearman")
+cor.test(datz$t1TB, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1TB, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1TB, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t3TB, method = "spearman")
+cor.test(datz$t1EXH, datz$t3EXH, method = "spearman")
+cor.test(datz$t1EXH, datz$t3DEV, method = "spearman")
+cor.test(datz$t1EXH, datz$t3RSA, method = "spearman")
+cor.test(datz$t1EXH, datz$t3DS, method = "spearman")
+cor.test(datz$t1EXH, datz$t3PS, method = "spearman")
+cor.test(datz$t1EXH, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1EXH, datz$t3ISI, method = "spearman")
+cor.test(datz$t1EXH, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1EXH, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1EXH, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t3TB, method = "spearman")
+cor.test(datz$t1DEV, datz$t3EXH, method = "spearman")
+cor.test(datz$t1DEV, datz$t3DEV, method = "spearman")
+cor.test(datz$t1DEV, datz$t3RSA, method = "spearman")
+cor.test(datz$t1DEV, datz$t3DS, method = "spearman")
+cor.test(datz$t1DEV, datz$t3PS, method = "spearman")
+cor.test(datz$t1DEV, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1DEV, datz$t3ISI, method = "spearman")
+cor.test(datz$t1DEV, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1DEV, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1DEV, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t3TB, method = "spearman")
+cor.test(datz$t1RSA, datz$t3EXH, method = "spearman")
+cor.test(datz$t1RSA, datz$t3DEV, method = "spearman")
+cor.test(datz$t1RSA, datz$t3RSA, method = "spearman")
+cor.test(datz$t1RSA, datz$t3DS, method = "spearman")
+cor.test(datz$t1RSA, datz$t3PS, method = "spearman")
+cor.test(datz$t1RSA, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1RSA, datz$t3ISI, method = "spearman")
+cor.test(datz$t1RSA, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1RSA, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1RSA, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t3TB, method = "spearman")
+cor.test(datz$t1DS, datz$t3EXH, method = "spearman")
+cor.test(datz$t1DS, datz$t3DEV, method = "spearman")
+cor.test(datz$t1DS, datz$t3RSA, method = "spearman")
+cor.test(datz$t1DS, datz$t3DS, method = "spearman")
+cor.test(datz$t1DS, datz$t3PS, method = "spearman")
+cor.test(datz$t1DS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1DS, datz$t3ISI, method = "spearman")
+cor.test(datz$t1DS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1DS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1DS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t3TB, method = "spearman")
+cor.test(datz$t1PS, datz$t3EXH, method = "spearman")
+cor.test(datz$t1PS, datz$t3DEV, method = "spearman")
+cor.test(datz$t1PS, datz$t3RSA, method = "spearman")
+cor.test(datz$t1PS, datz$t3DS, method = "spearman")
+cor.test(datz$t1PS, datz$t3PS, method = "spearman")
+cor.test(datz$t1PS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1PS, datz$t3ISI, method = "spearman")
+cor.test(datz$t1PS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1PS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1PS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t3TB, method = "spearman")
+cor.test(datz$t1ISI, datz$t3EXH, method = "spearman")
+cor.test(datz$t1ISI, datz$t3DEV, method = "spearman")
+cor.test(datz$t1ISI, datz$t3RSA, method = "spearman")
+cor.test(datz$t1ISI, datz$t3DS, method = "spearman")
+cor.test(datz$t1ISI, datz$t3PS, method = "spearman")
+cor.test(datz$t1ISI, datz$t3ISI, method = "spearman")
+cor.test(datz$t1ISI, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1ISI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1ISI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1ISI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3TB, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3EXH, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3DEV, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3RSA, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3DS, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3PS, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3ISI, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1PSQI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3TB, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3EXH, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3DEV, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3RSA, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3DS, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3PS, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3ISI, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1iga_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1test_conc, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3TB, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3EXH, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3DEV, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3RSA, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3DS, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3PS, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3ISI, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1dheas_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1cort_conc, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t1crp_conc, datz$t3crp_conc, method = "spearman")
+
+#wave 2 to wave 3
+cor.test(datz$t2TB, datz$t3TB, method = "spearman")
+cor.test(datz$t2TB, datz$t3EXH, method = "spearman")
+cor.test(datz$t2TB, datz$t3DEV, method = "spearman")
+cor.test(datz$t2TB, datz$t3RSA, method = "spearman")
+cor.test(datz$t2TB, datz$t3DS, method = "spearman")
+cor.test(datz$t2TB, datz$t3PS, method = "spearman")
+cor.test(datz$t2TB, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2TB, datz$t3ISI, method = "spearman")
+cor.test(datz$t2TB, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2TB, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2TB, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2TB, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2TB, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t3TB, method = "spearman")
+cor.test(datz$t2EXH, datz$t3EXH, method = "spearman")
+cor.test(datz$t2EXH, datz$t3DEV, method = "spearman")
+cor.test(datz$t2EXH, datz$t3RSA, method = "spearman")
+cor.test(datz$t2EXH, datz$t3DS, method = "spearman")
+cor.test(datz$t2EXH, datz$t3PS, method = "spearman")
+cor.test(datz$t2EXH, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2EXH, datz$t3ISI, method = "spearman")
+cor.test(datz$t2EXH, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2EXH, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2EXH, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2EXH, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t3TB, method = "spearman")
+cor.test(datz$t2DEV, datz$t3EXH, method = "spearman")
+cor.test(datz$t2DEV, datz$t3DEV, method = "spearman")
+cor.test(datz$t2DEV, datz$t3RSA, method = "spearman")
+cor.test(datz$t2DEV, datz$t3DS, method = "spearman")
+cor.test(datz$t2DEV, datz$t3PS, method = "spearman")
+cor.test(datz$t2DEV, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2DEV, datz$t3ISI, method = "spearman")
+cor.test(datz$t2DEV, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2DEV, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2DEV, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2DEV, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2RSA, datz$t3TB, method = "spearman")
+cor.test(datz$t2RSA, datz$t3EXH, method = "spearman")
+cor.test(datz$t2RSA, datz$t3DEV, method = "spearman")
+cor.test(datz$t2RSA, datz$t3RSA, method = "spearman")
+cor.test(datz$t2RSA, datz$t3DS, method = "spearman")
+cor.test(datz$t2RSA, datz$t3PS, method = "spearman")
+cor.test(datz$t2RSA, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2RSA, datz$t3ISI, method = "spearman")
+cor.test(datz$t2RSA, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2RSA, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2RSA, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2RSA, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2RSA, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t3TB, method = "spearman")
+cor.test(datz$t2DS, datz$t3EXH, method = "spearman")
+cor.test(datz$t2DS, datz$t3DEV, method = "spearman")
+cor.test(datz$t2DS, datz$t3RSA, method = "spearman")
+cor.test(datz$t2DS, datz$t3DS, method = "spearman")
+cor.test(datz$t2DS, datz$t3PS, method = "spearman")
+cor.test(datz$t2DS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2DS, datz$t3ISI, method = "spearman")
+cor.test(datz$t2DS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2DS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2DS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2DS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t3TB, method = "spearman")
+cor.test(datz$t2PS, datz$t3EXH, method = "spearman")
+cor.test(datz$t2PS, datz$t3DEV, method = "spearman")
+cor.test(datz$t2PS, datz$t3RSA, method = "spearman")
+cor.test(datz$t2PS, datz$t3DS, method = "spearman")
+cor.test(datz$t2PS, datz$t3PS, method = "spearman")
+cor.test(datz$t2PS, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2PS, datz$t3ISI, method = "spearman")
+cor.test(datz$t2PS, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2PS, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2PS, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2PS, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3TB, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3EXH, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3DEV, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3RSA, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3DS, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3PS, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3ISI, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2PSQI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t3TB, method = "spearman")
+cor.test(datz$t2ISI, datz$t3EXH, method = "spearman")
+cor.test(datz$t2ISI, datz$t3DEV, method = "spearman")
+cor.test(datz$t2ISI, datz$t3RSA, method = "spearman")
+cor.test(datz$t2ISI, datz$t3DS, method = "spearman")
+cor.test(datz$t2ISI, datz$t3PS, method = "spearman")
+cor.test(datz$t2ISI, datz$t3ISI, method = "spearman")
+cor.test(datz$t2ISI, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2ISI, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2ISI, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2ISI, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2ISI, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3TB, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3EXH, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3DEV, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3RSA, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3DS, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3PS, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3ISI, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2iga_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2test_conc, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3TB, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3EXH, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3DEV, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3RSA, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3DS, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3PS, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3ISI, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2dheas_flow, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2cort_conc, datz$t3crp_conc, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3TB, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3EXH, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3DEV, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3RSA, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3DS, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3PS, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3ISI, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3PSQI, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3iga_flow, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3test_conc, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3dheas_flow, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3cort_conc, method = "spearman")
+cor.test(datz$t2crp_conc, datz$t3crp_conc, method = "spearman")
+
+##time difference
+#wave 1
+cor.test(datz$t1timediff, datz$t1iga_flow)
+cor.test(datz$t1timediff, datz$t1test_conc)
+cor.test(datz$t1timediff, datz$t1dheas_flow)
+cor.test(datz$t1timediff, datz$t1cort_conc)
+cor.test(datz$t1timediff, datz$t1crp_conc)
+#wave 2
+cor.test(datz$t2timediff, datz$t2iga_flow)
+cor.test(datz$t2timediff, datz$t2test_conc)
+cor.test(datz$t2timediff, datz$t2dheas_flow)
+cor.test(datz$t2timediff, datz$t2cort_conc)
+cor.test(datz$t2timediff, datz$t2crp_conc)
+#wave 3
+cor.test(datz$t3timediff, datz$t3iga_flow)
+cor.test(datz$t3timediff, datz$t3test_conc)
+cor.test(datz$t3timediff, datz$t3dheas_flow)
+cor.test(datz$t3timediff, datz$t3cort_conc)
+cor.test(datz$t3timediff, datz$t3crp_conc)
+#wave 1 to 2
+cor.test(datz$t1timediff, datz$t2iga_flow)
+cor.test(datz$t1timediff, datz$t2test_conc)
+cor.test(datz$t1timediff, datz$t2dheas_flow)
+cor.test(datz$t1timediff, datz$t2cort_conc)
+cor.test(datz$t1timediff, datz$t2crp_conc)
+#wave 1 to 3
+cor.test(datz$t1timediff, datz$t3iga_flow)
+cor.test(datz$t1timediff, datz$t3test_conc)
+cor.test(datz$t1timediff, datz$t3dheas_flow)
+cor.test(datz$t1timediff, datz$t3cort_conc)
+cor.test(datz$t1timediff, datz$t3crp_conc)
+#wave 2 to 3
+cor.test(datz$t2timediff, datz$t3iga_flow)
+cor.test(datz$t2timediff, datz$t3test_conc)
+cor.test(datz$t2timediff, datz$t3dheas_flow)
+cor.test(datz$t2timediff, datz$t3cort_conc)
+cor.test(datz$t2timediff, datz$t3crp_conc)
+```
+
+# Creating a long format
+A long format is required for multilevel modeling with lavaan. 
+```{r reformating}
+#total burnout
+datl_tb <- datz %>% 
+  dplyr::select(sample_id, t1TB, t2TB, t3TB) %>%
+  pivot_longer(cols = c(t1TB, t2TB, t3TB),
+                               names_to = "timepoint",
+                               values_to = "TB") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB" ~"t1", 
+                         timepoint =="t2TB" ~ "t2",
+                         timepoint =="t3TB" ~ "t3"))
+datl_tbz <- datz %>% 
+  dplyr::select(sample_id, t1TB_z, t2TB_z, t3TB_z) %>%
+  pivot_longer(cols = c(t1TB_z, t2TB_z, t3TB_z),
+                               names_to = "timepoint",
+                               values_to = "TBz") %>%
+  mutate(timepoint = case_when(timepoint== "t1TB_z" ~"t1", 
+                         timepoint =="t2TB_z" ~ "t2",
+                         timepoint =="t3TB_z" ~ "t3"))
+#exhaustion
+datl_exh <- datz %>% 
+  dplyr::select(sample_id, t1EXH, t2EXH, t3EXH) %>%
+  pivot_longer(cols = c(t1EXH, t2EXH, t3EXH),
+                               names_to = "timepoint",
+                               values_to = "EXH") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH" ~"t1", 
+                         timepoint =="t2EXH" ~ "t2",
+                         timepoint =="t3EXH" ~ "t3"))
+datl_exhz <- datz %>% 
+  dplyr::select(sample_id, t1EXH_z, t2EXH_z, t3EXH_z) %>%
+  pivot_longer(cols = c(t1EXH_z, t2EXH_z, t3EXH_z),
+                               names_to = "timepoint",
+                               values_to = "EXHz") %>%
+  mutate(timepoint = case_when(timepoint== "t1EXH_z" ~"t1", 
+                         timepoint =="t2EXH_z" ~ "t2",
+                         timepoint =="t3EXH_z" ~ "t3"))
+#devaluation
+datl_dev <- datz %>% 
+  dplyr::select(sample_id, t1DEV, t2DEV, t3DEV) %>%
+  pivot_longer(cols = c(t1DEV, t2DEV, t3DEV),
+                               names_to = "timepoint",
+                               values_to = "DEV") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV" ~"t1", 
+                         timepoint =="t2DEV" ~ "t2",
+                         timepoint =="t3DEV" ~ "t3"))
+datl_devz <- datz %>% 
+  dplyr::select(sample_id, t1DEV_z, t2DEV_z, t3DEV_z) %>%
+  pivot_longer(cols = c(t1DEV_z, t2DEV_z, t3DEV_z),
+                               names_to = "timepoint",
+                               values_to = "DEVz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DEV_z" ~"t1", 
+                         timepoint =="t2DEV_z" ~ "t2",
+                         timepoint =="t3DEV_z" ~ "t3"))
+#rsa
+datl_rsa <- datz %>% 
+  dplyr::select(sample_id, t1RSA, t2RSA, t3RSA) %>%
+  pivot_longer(cols = c(t1RSA, t2RSA, t3RSA),
+                               names_to = "timepoint",
+                               values_to = "RSA") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA" ~"t1", 
+                         timepoint =="t2RSA" ~ "t2",
+                         timepoint =="t3RSA" ~ "t3"))
+datl_rsaz <- datz %>% 
+  dplyr::select(sample_id, t1RSA_z, t2RSA_z, t3RSA_z) %>%
+  pivot_longer(cols = c(t1RSA_z, t2RSA_z, t3RSA_z),
+                               names_to = "timepoint",
+                               values_to = "RSAz") %>%
+  mutate(timepoint = case_when(timepoint== "t1RSA_z" ~"t1", 
+                         timepoint =="t2RSA_z" ~ "t2",
+                         timepoint =="t3RSA_z" ~ "t3"))
+#DS
+datl_ds <- datz %>% 
+  dplyr::select(sample_id, t1DS, t2DS, t3DS) %>%
+  pivot_longer(cols = c(t1DS, t2DS, t3DS),
+                               names_to = "timepoint",
+                               values_to = "DS") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS" ~"t1", 
+                         timepoint =="t2DS" ~ "t2",
+                         timepoint =="t3DS" ~ "t3"))
+datl_dsz <- datz %>% 
+  dplyr::select(sample_id, t1DS_z, t2DS_z, t3DS_z) %>%
+  pivot_longer(cols = c(t1DS_z, t2DS_z, t3DS_z),
+                               names_to = "timepoint",
+                               values_to = "DSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1DS_z" ~"t1", 
+                         timepoint =="t2DS_z" ~ "t2",
+                         timepoint =="t3DS_z" ~ "t3"))
+#PS
+datl_ps <- datz %>% 
+  dplyr::select(sample_id, t1PS, t2PS, t3PS) %>%
+  pivot_longer(cols = c(t1PS, t2PS, t3PS),
+                               names_to = "timepoint",
+                               values_to = "PS") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS" ~"t1", 
+                         timepoint =="t2PS" ~ "t2",
+                         timepoint =="t3PS" ~ "t3"))
+datl_psz <- datz %>% 
+  dplyr::select(sample_id, t1PS_z, t2PS_z, t3PS_z) %>%
+  pivot_longer(cols = c(t1PS_z, t2PS_z, t3PS_z),
+                               names_to = "timepoint",
+                               values_to = "PSz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PS_z" ~"t1", 
+                         timepoint =="t2PS_z" ~ "t2",
+                         timepoint =="t3PS_z" ~ "t3"))
+#PSQI
+datl_psqi <- datz %>% 
+  dplyr::select(sample_id, t1PSQI, t2PSQI, t3PSQI) %>%
+  pivot_longer(cols = c(t1PSQI, t2PSQI, t3PSQI),
+                               names_to = "timepoint",
+                               values_to = "PSQI") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI" ~"t1", 
+                         timepoint =="t2PSQI" ~ "t2",
+                         timepoint =="t3PSQI" ~ "t3"))
+datl_psqiz <- datz %>% 
+  dplyr::select(sample_id, t1PSQI_z, t2PSQI_z, t3PSQI_z) %>%
+  pivot_longer(cols = c(t1PSQI_z, t2PSQI_z, t3PSQI_z),
+                               names_to = "timepoint",
+                               values_to = "PSQIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1PSQI_z" ~"t1", 
+                         timepoint =="t2PSQI_z" ~ "t2",
+                         timepoint =="t3PSQI_z" ~ "t3"))
+#ISI
+datl_isi <- datz %>% 
+  dplyr::select(sample_id, t1ISI, t2ISI, t3ISI) %>%
+  pivot_longer(cols = c(t1ISI, t2ISI, t3ISI),
+                               names_to = "timepoint",
+                               values_to = "ISI") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI" ~"t1", 
+                         timepoint =="t2ISI" ~ "t2",
+                         timepoint =="t3ISI" ~ "t3"))
+datl_isiz <- datz %>% 
+  dplyr::select(sample_id, t1ISI_z, t2ISI_z, t3ISI_z) %>%
+  pivot_longer(cols = c(t1ISI_z, t2ISI_z, t3ISI_z),
+                               names_to = "timepoint",
+                               values_to = "ISIz") %>%
+  mutate(timepoint = case_when(timepoint== "t1ISI_z" ~"t1", 
+                         timepoint =="t2ISI_z" ~ "t2",
+                         timepoint =="t3ISI_z" ~ "t3"))
+#iga flow
+datl_igaflow <- datz %>% 
+  dplyr::select(sample_id, t1iga_flow, t2iga_flow, t3iga_flow) %>%
+  pivot_longer(cols = c(t1iga_flow, t2iga_flow, t3iga_flow),
+                               names_to = "timepoint",
+                               values_to = "iga_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_flow" ~"t1", 
+                         timepoint =="t2iga_flow" ~ "t2",
+                         timepoint =="t3iga_flow" ~ "t3"))
+datl_igafz <- datz %>% 
+  dplyr::select(sample_id, t1iga_z, t2iga_z, t3iga_z) %>%
+  pivot_longer(cols = c(t1iga_z, t2iga_z, t3iga_z),
+                               names_to = "timepoint",
+                               values_to = "iga_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1iga_z" ~"t1", 
+                         timepoint =="t2iga_z" ~ "t2",
+                         timepoint =="t3iga_z" ~ "t3"))
+#testosterone conc
+datl_testc <- datz %>% 
+  dplyr::select(sample_id, t1test_conc, t2test_conc, t3test_conc) %>%
+  pivot_longer(cols = c(t1test_conc, t2test_conc, t3test_conc),
+                               names_to = "timepoint",
+                               values_to = "test_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1test_conc" ~"t1", 
+                         timepoint =="t2test_conc" ~ "t2",
+                         timepoint =="t3test_conc" ~ "t3"))
+datl_testcz <- datz %>% 
+  dplyr::select(sample_id, t1testo_z, t2testo_z, t3testo_z) %>%
+  pivot_longer(cols = c(t1testo_z, t2testo_z, t3testo_z),
+                               names_to = "timepoint",
+                               values_to = "test_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1testo_z" ~"t1", 
+                         timepoint =="t2testo_z" ~ "t2",
+                         timepoint =="t3testo_z" ~ "t3"))
+#dheas flow
+datl_dheasf <- datz %>% 
+  dplyr::select(sample_id, t1dheas_flow, t2dheas_flow, t3dheas_flow) %>%
+  pivot_longer(cols = c(t1dheas_flow, t2dheas_flow, t3dheas_flow),
+                               names_to = "timepoint",
+                               values_to = "dheas_flow") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_flow" ~"t1", 
+                         timepoint =="t2dheas_flow" ~ "t2",
+                         timepoint =="t3dheas_flow" ~ "t3"))
+datl_dheasfz <- datz %>% 
+  dplyr::select(sample_id, t1dheas_z, t2dheas_z, t3dheas_z) %>%
+  pivot_longer(cols = c(t1dheas_z, t2dheas_z, t3dheas_z),
+                               names_to = "timepoint",
+                               values_to = "dheas_flowz") %>%
+  mutate(timepoint = case_when(timepoint== "t1dheas_z" ~"t1", 
+                         timepoint =="t2dheas_z" ~ "t2",
+                         timepoint =="t3dheas_z" ~ "t3"))
+#cort conc
+datl_cortc <- datz %>% 
+  dplyr::select(sample_id, t1cort_conc, t2cort_conc, t3cort_conc) %>%
+  pivot_longer(cols = c(t1cort_conc, t2cort_conc, t3cort_conc),
+                               names_to = "timepoint",
+                               values_to = "cort_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_conc" ~"t1", 
+                         timepoint =="t2cort_conc" ~ "t2",
+                         timepoint =="t3cort_conc" ~ "t3"))
+datl_cortcz <- datz %>% 
+  dplyr::select(sample_id, t1cort_z, t2cort_z, t3cort_z) %>%
+  pivot_longer(cols = c(t1cort_z, t2cort_z, t3cort_z),
+                               names_to = "timepoint",
+                               values_to = "cort_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1cort_z" ~"t1", 
+                         timepoint =="t2cort_z" ~ "t2",
+                         timepoint =="t3cort_z" ~ "t3"))
+#crp conc
+datl_crpc <- datz %>% 
+  dplyr::select(sample_id, t1crp_conc, t2crp_conc, t3crp_conc) %>%
+  pivot_longer(cols = c(t1crp_conc, t2crp_conc, t3crp_conc),
+                               names_to = "timepoint",
+                               values_to = "crp_conc") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_conc" ~"t1", 
+                         timepoint =="t2crp_conc" ~ "t2",
+                         timepoint =="t3crp_conc" ~ "t3"))
+datl_crpcz <- datz %>% 
+  dplyr::select(sample_id, t1crp_z, t2crp_z, t3crp_z) %>%
+  pivot_longer(cols = c(t1crp_z, t2crp_z, t3crp_z),
+                               names_to = "timepoint",
+                               values_to = "crp_concz") %>%
+  mutate(timepoint = case_when(timepoint== "t1crp_z" ~"t1", 
+                         timepoint =="t2crp_z" ~ "t2",
+                         timepoint =="t3crp_z" ~ "t3"))
+#time difference
+datl_timed <- datz %>% 
+  dplyr::select(sample_id, t1timediff, t2timediff, t3timediff) %>%
+  pivot_longer(cols = c(t1timediff, t2timediff, t3timediff),
+                               names_to = "timepoint",
+                               values_to = "timediff") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff" ~"t1", 
+                         timepoint =="t2timediff" ~ "t2",
+                         timepoint =="t3timediff" ~ "t3"))
+datl_timedz <- datz %>% 
+  dplyr::select(sample_id, t1timediff_z, t2timediff_z, t3timediff_z) %>%
+  pivot_longer(cols = c(t1timediff_z, t2timediff_z, t3timediff_z),
+                               names_to = "timepoint",
+                               values_to = "timediffz") %>%
+  mutate(timepoint = case_when(timepoint== "t1timediff_z" ~"t1", 
+                         timepoint =="t2timediff_z" ~ "t2",
+                         timepoint =="t3timediff_z" ~ "t3"))
+
+##notes
+datl_notes <- datz %>% 
+  dplyr::select(sample_id, t1notes, t2notes, t3notes) %>%
+  pivot_longer(cols = c(t1notes, t2notes, t3notes),
+                               names_to = "timepoint",
+                               values_to = "notes") %>%
+  mutate(timepoint = case_when(timepoint== "t1notes" ~"t1", 
+                         timepoint =="t2notes" ~ "t2",
+                         timepoint =="t3notes" ~ "t3"))
+
+##join all files together
+datl <- inner_join(datl_tb, datl_tbz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exh, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_exhz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dev, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_devz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsa, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_rsaz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ds, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dsz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_ps, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_psqi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_psqiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isi, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_isiz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igaflow, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_igafz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testc, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_testcz, by = c("sample_id", "timepoint")) %>%
+  inner_join(datl_dheasf, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_dheasfz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_cortcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpc, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_crpcz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timed, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_timedz, by = c("sample_id", "timepoint"))%>%
+  inner_join(datl_notes, by = c("sample_id", "timepoint"))
+```
+
+## Data Filtering prior to modelling
+Data with notes that indicate recent food consumption or where the time difference between eating and sample collection is not sufficient is removed. One participant is removed, because they ended up being injured throughout the whole duration of the study.
+```{r filter}
+##remove row 182 for eating
+datlx <- datl[-182,]
+##filtering data by timepoint
+datlx <- datlx %>% filter(timediff > 1.5)
+##remove participant 91 for injury
+datlx <- datlx %>% filter(sample_id != 91)
+```
+
+# MLMs with biomarkers and mediators at once
+The first modeling approach uses the biomarkers (testosterone, DHEA-S, IgA) as mediators simultaneously to reduce the number of models run. This is the modeling approach used for the paper as the biomarkers used for this full model have the best support based on the other thesis studies.
+```{r mlms}
+## Depressive Symptoms
+##TB x Biomarkers x DS
+tb_bio_ds <- '
+level:1
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+DS ~ f*TBz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz 
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+DS ~ c*TBz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz 
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fittb_bio_ds <- sem(model = tb_bio_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_bio_ds, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fittb_bio_ds, "icc")
+standardizedsolution(fittb_bio_ds)
+
+##EXH x Biomarkers x DS
+exh_bio_ds <- '
+level:1
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+DS ~ f*EXHz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+DS ~ c*EXHz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitexh_bio_ds <- sem(model = exh_bio_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_bio_ds, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitexh_bio_ds, "icc")
+standardizedsolution(fitexh_bio_ds)
+
+##DEV x Biomarkers x DS
+dev_bio_ds <- '
+level:1
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+DS ~ f*DEVz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+DS ~ c*DEVz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitdev_bio_ds <- sem(model = dev_bio_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_bio_ds, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitdev_bio_ds, "icc")
+standardizedsolution(fitdev_bio_ds)
+
+##RSA x Biomarkers x DS
+rsa_bio_ds <- '
+level:1
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+DS ~ f*RSAz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+DS ~ c*RSAz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitrsa_bio_ds <- sem(model = rsa_bio_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_bio_ds, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitrsa_bio_ds, "icc")
+standardizedsolution(fitrsa_bio_ds)
+
+
+
+##Physical Symptoms
+##TB x Biomarkers x PS
+tb_bio_ps <- '
+level:1
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+PS ~ f*TBz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+PS ~ c*TBz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fittb_bio_ps <- sem(model = tb_bio_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_bio_ps, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fittb_bio_ps, "icc")
+standardizedsolution(fittb_bio_ps)
+
+##EXH x Biomarkers x PS
+exh_bio_ps <- '
+level:1
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+PS ~ f*EXHz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+PS ~ c*EXHz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitexh_bio_ps <- sem(model = exh_bio_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_bio_ps, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitexh_bio_ps, "icc")
+standardizedsolution(fitexh_bio_ps)
+
+##DEV x Biomarkers x PS
+dev_bio_ps <- '
+level:1
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+PS ~ f*DEVz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+PS ~ c*DEVz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitdev_bio_ps <- sem(model = dev_bio_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_bio_ps, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitdev_bio_ps, "icc")
+standardizedsolution(fitdev_bio_ps)
+
+##RSA x Biomarkers x PS
+rsa_bio_ps <- '
+level:1
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+PS ~ f*RSAz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+PS ~ c*RSAz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitrsa_bio_ps <- sem(model = rsa_bio_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_bio_ps, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitrsa_bio_ps, "icc")
+standardizedsolution(fitrsa_bio_ps)
+
+
+
+##Insomnia
+##TB x Biomarkers x ISI
+tb_bio_isi <- '
+level:1
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+ISI ~ f*TBz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+ISI ~ c*TBz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fittb_bio_isi <- sem(model = tb_bio_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_bio_isi, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fittb_bio_isi, "icc")
+standardizedsolution(fittb_bio_isi)
+
+##EXH x Biomarkers x ISI
+exh_bio_isi <- '
+level:1
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+ISI ~ f*EXHz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+ISI ~ c*EXHz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitexh_bio_isi <- sem(model = exh_bio_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_bio_isi, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitexh_bio_isi, "icc")
+standardizedsolution(fitexh_bio_isi)
+
+##DEV x Biomarkers x ISI
+dev_bio_isi <- '
+level:1
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+ISI ~ f*DEVz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+ISI ~ c*DEVz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitdev_bio_isi <- sem(model = dev_bio_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_bio_isi, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitdev_bio_isi, "icc")
+standardizedsolution(fitdev_bio_isi)
+
+##RSA x Biomarkers x ISI
+rsa_bio_isi <- '
+level:1
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+ISI ~ f*RSAz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+ISI ~ c*RSAz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitrsa_bio_isi <- sem(model = rsa_bio_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_bio_isi, fit.measures=TRUE, standardized = TRUE, rsquare=TRUE)
+lavInspect(fitrsa_bio_isi, "icc")
+standardizedsolution(fitrsa_bio_isi)
+
+
+
+##PSQI
+##TB x Biomarkers x PSQI
+tb_bio_psqi <- '
+level:1
+iga_flowz ~ d1*TBz
+test_concz ~ d2*TBz
+dheas_flowz ~ d3*TBz
+PSQI ~ f*TBz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*TBz
+test_concz ~ a2*TBz
+dheas_flowz ~ a3*TBz
+PSQI ~ c*TBz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fittb_bio_psqi <- sem(model = tb_bio_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_bio_psqi, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fittb_bio_psqi, "icc")
+
+##EXH x Biomarkers x PSQI
+exh_bio_psqi <- '
+level:1
+iga_flowz ~ d1*EXHz
+test_concz ~ d2*EXHz
+dheas_flowz ~ d3*EXHz
+PSQI ~ f*EXHz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*EXHz
+test_concz ~ a2*EXHz
+dheas_flowz ~ a3*EXHz
+PSQI ~ c*EXHz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitexh_bio_psqi <- sem(model = exh_bio_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_bio_psqi, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitexh_bio_psqi, "icc")
+
+##DEV x Biomarkers x PSQI
+dev_bio_psqi <- '
+level:1
+iga_flowz ~ d1*DEVz
+test_concz ~ d2*DEVz
+dheas_flowz ~ d3*DEVz
+PSQI ~ f*DEVz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*DEVz
+test_concz ~ a2*DEVz
+dheas_flowz ~ a3*DEVz
+PSQI ~ c*DEVz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitdev_bio_psqi <- sem(model = dev_bio_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_bio_psqi, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitdev_bio_psqi, "icc")
+
+##RSA x Biomarkers x PSQI
+rsa_bio_psqi <- '
+level:1
+iga_flowz ~ d1*RSAz
+test_concz ~ d2*RSAz
+dheas_flowz ~ d3*RSAz
+PSQI ~ f*RSAz + e1*iga_flowz + e2*test_concz + e3*dheas_flowz
+de1:= d1*e1
+de2:= d2*e2
+de3:= d3*e3
+totalw1 := de1+f
+totalw2 := de2+f
+totalw3 := de3+f
+
+level:2
+iga_flowz ~ a1*RSAz
+test_concz ~ a2*RSAz
+dheas_flowz ~ a3*RSAz
+PSQI ~ c*RSAz + b1*iga_flowz + b2*test_concz + b3*dheas_flowz
+ab1:= a1*b1
+ab2:= a2*b2
+ab3:= a3*b3
+totalb1 := ab1+c
+totalb2 := ab2+c
+totalb3 := ab3+c
+'
+fitrsa_bio_psqi <- sem(model = rsa_bio_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_bio_psqi, fit.measures=TRUE, standardized = TRUE)
+lavInspect(fitrsa_bio_psqi, "icc")
+```
+
+# MLMs with single biomarkers
+The second modeling approach uses a single biomarker as a mediator in each model. This approach is used in the analysis for the thesis to look at the potential of biomarkers on their own and include cortisol and CRP in the analysis as well. 
+```{r mlms single}
+##IgA on 
+## Depressive symptoms
+##TB x IgA x DS
+tb_iga_ds <- '
+level:1
+iga_flowz ~ d*TBz
+DS ~ f*TBz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*TBz
+DS ~ c*TBz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_iga_ds <- sem(model = tb_iga_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_iga_ds, "icc")
+standardizedsolution(fittb_iga_ds)
+
+##EXH x iga x DS
+exh_iga_ds <- '
+level:1
+iga_flowz ~ d*EXHz
+DS ~ f*EXHz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*EXHz
+DS ~ c*EXHz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_iga_ds <- sem(model = exh_iga_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_iga_ds, "icc")
+standardizedsolution(fitexh_iga_ds)
+
+##DEV x iga x DS
+dev_iga_ds <- '
+level:1
+iga_flowz ~ d*DEVz
+DS ~ f*DEVz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*DEVz
+DS ~ c*DEVz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_iga_ds <- sem(model = dev_iga_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_iga_ds, "icc")
+standardizedsolution(fitdev_iga_ds)
+
+##RSA x iga x DS
+rsa_iga_ds <- '
+level:1
+iga_flowz ~ d*RSAz
+DS ~ f*RSAz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*RSAz
+DS ~ c*RSAz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_iga_ds <- sem(model = rsa_iga_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_iga_ds, "icc")
+standardizedsolution(fitrsa_iga_ds)
+
+##Physical Symptoms
+##TB x iga x PS
+tb_iga_ps <- '
+level:1
+iga_flowz ~ d*TBz
+PS ~ f*TBz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*TBz
+PS ~ c*TBz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_iga_ps <- sem(model = tb_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_iga_ps, "icc")
+standardizedsolution(fittb_iga_ps)
+
+##EXH x iga x PS
+exh_iga_ps <- '
+level:1
+iga_flowz ~ d*EXHz
+PS ~ f*EXHz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*EXHz
+PS ~ c*EXHz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_iga_ps <- sem(model = exh_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_iga_ps, "icc")
+standardizedsolution(fitexh_iga_ps)
+
+##DEV x iga x PS
+dev_iga_ps <- '
+level:1
+iga_flowz ~ d*DEVz
+PS ~ f*DEVz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*DEVz
+PS ~ c*DEVz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_iga_ps <- sem(model = dev_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_iga_ps, "icc")
+standardizedsolution(fitdev_iga_ps)
+
+##RSA x iga x PS
+rsa_iga_ps <- '
+level:1
+iga_flowz ~ d*RSAz
+PS ~ f*RSAz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*RSAz
+PS ~ c*RSAz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_iga_ps <- sem(model = rsa_iga_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_iga_ps, "icc")
+standardizedsolution(fitrsa_iga_ps)
+
+##ISI
+##TB x iga x ISI
+tb_iga_isi <- '
+level:1
+iga_flowz ~ d*TBz
+ISI ~ f*TBz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*TBz
+ISI ~ c*TBz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_iga_isi <- sem(model = tb_iga_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_iga_isi, "icc")
+standardizedsolution(fittb_iga_isi)
+
+##EXH x iga x ISI
+exh_iga_isi <- '
+level:1
+iga_flowz ~ d*EXHz
+ISI ~ f*EXHz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*EXHz
+ISI ~ c*EXHz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_iga_isi <- sem(model = exh_iga_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_iga_isi, "icc")
+standardizedsolution(fitexh_iga_isi)
+
+##DEV x iga x ISI
+dev_iga_isi <- '
+level:1
+iga_flowz ~ d*DEVz
+ISI ~ f*DEVz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*DEVz
+ISI ~ c*DEVz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_iga_isi <- sem(model = dev_iga_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_iga_isi, "icc")
+standardizedsolution(fitdev_iga_isi)
+
+##RSA x iga x ISI
+rsa_iga_isi <- '
+level:1
+iga_flowz ~ d*RSAz
+ISI ~ f*RSAz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*RSAz
+ISI ~ c*RSAz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_iga_isi <- sem(model = rsa_iga_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_iga_isi, "icc")
+standardizedsolution(fitrsa_iga_isi)
+
+##PSQI
+##TB x iga x PSQI
+tb_iga_psqi <- '
+level:1
+iga_flowz ~ d*TBz
+PSQI ~ f*TBz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*TBz
+PSQI ~ c*TBz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_iga_psqi <- sem(model = tb_iga_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_iga_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_iga_psqi, "icc")
+standardizedsolution(fittb_iga_psqi)
+
+##EXH x iga x PSQI
+exh_iga_psqi <- '
+level:1
+iga_flowz ~ d*EXHz
+PSQI ~ f*EXHz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*EXHz
+PSQI ~ c*EXHz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_iga_psqi <- sem(model = exh_iga_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_iga_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_iga_psqi, "icc")
+standardizedsolution(fitexh_iga_psqi)
+
+##DEV x iga x PSQI
+dev_iga_psqi <- '
+level:1
+iga_flowz ~ d*DEVz
+PSQI ~ f*DEVz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*DEVz
+PSQI ~ c*DEVz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_iga_psqi <- sem(model = dev_iga_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_iga_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_iga_psqi, "icc")
+standardizedsolution(fitdev_iga_psqi)
+
+##RSA x iga x PSQI
+rsa_iga_psqi <- '
+level:1
+iga_flowz ~ d*RSAz
+PSQI ~ f*RSAz + e*iga_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+iga_flowz ~ a*RSAz
+PSQI ~ c*RSAz + b*iga_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_iga_psqi <- sem(model = rsa_iga_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_iga_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_iga_psqi, "icc")
+standardizedsolution(fitrsa_iga_psqi)
+
+
+
+
+# Testosterone on 
+## Depressive symptoms
+##TB x testo x DS
+tb_testo_ds <- '
+level:1
+test_concz ~ d*TBz
+DS ~ f*TBz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*TBz
+DS ~ c*TBz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_testo_ds <- sem(model = tb_testo_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_testo_ds, "icc")
+standardizedsolution(fittb_testo_ds)
+
+##EXH x testo x DS
+exh_testo_ds <- '
+level:1
+test_concz ~ d*EXHz
+DS ~ f*EXHz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*EXHz
+DS ~ c*EXHz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_testo_ds <- sem(model = exh_testo_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_testo_ds, "icc")
+standardizedsolution(fitexh_testo_ds)
+
+##DEV x testo x DS
+dev_testo_ds <- '
+level:1
+test_concz ~ d*DEVz
+DS ~ f*DEVz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*DEVz
+DS ~ c*DEVz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_testo_ds <- sem(model = dev_testo_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_testo_ds, "icc")
+standardizedsolution(fitdev_testo_ds)
+
+##RSA x testo x DS
+rsa_testo_ds <- '
+level:1
+test_concz ~ d*RSAz
+DS ~ f*RSAz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*RSAz
+DS ~ c*RSAz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_testo_ds <- sem(model = rsa_testo_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_testo_ds, "icc")
+standardizedsolution(fitrsa_testo_ds)
+
+##Physical Symptoms
+##TB x testo x PS
+tb_testo_ps <- '
+level:1
+test_concz ~ d*TBz
+PS ~ f*TBz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*TBz
+PS ~ c*TBz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_testo_ps <- sem(model = tb_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_testo_ps, "icc")
+standardizedsolution(fittb_testo_ps)
+
+##EXH x testo x PS
+exh_testo_ps <- '
+level:1
+test_concz ~ d*EXHz
+PS ~ f*EXHz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*EXHz
+PS ~ c*EXHz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_testo_ps <- sem(model = exh_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_testo_ps, "icc")
+standardizedsolution(fitexh_testo_ps)
+
+##DEV x testo x PS
+dev_testo_ps <- '
+level:1
+test_concz ~ d*DEVz
+PS ~ f*DEVz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*DEVz
+PS ~ c*DEVz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_testo_ps <- sem(model = dev_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_testo_ps, "icc")
+standardizedsolution(fitdev_testo_ps)
+
+##RSA x testo x PS
+rsa_testo_ps <- '
+level:1
+test_concz ~ d*RSAz
+PS ~ f*RSAz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*RSAz
+PS ~ c*RSAz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_testo_ps <- sem(model = rsa_testo_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_testo_ps, "icc")
+standardizedsolution(fitrsa_testo_ps)
+
+##ISI
+##TB x testo x ISI
+tb_testo_isi <- '
+level:1
+test_concz ~ d*TBz
+ISI ~ f*TBz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*TBz
+ISI ~ c*TBz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_testo_isi <- sem(model = tb_testo_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_testo_isi, "icc")
+standardizedsolution(fittb_testo_isi)
+
+##EXH x testo x ISI
+exh_testo_isi <- '
+level:1
+test_concz ~ d*EXHz
+ISI ~ f*EXHz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*EXHz
+ISI ~ c*EXHz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_testo_isi <- sem(model = exh_testo_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_testo_isi, "icc")
+standardizedsolution(fitexh_testo_isi)
+
+##DEV x testo x ISI
+dev_testo_isi <- '
+level:1
+test_concz ~ d*DEVz
+ISI ~ f*DEVz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*DEVz
+ISI ~ c*DEVz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_testo_isi <- sem(model = dev_testo_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_testo_isi, "icc")
+standardizedsolution(fitdev_testo_isi)
+
+##RSA x testo x ISI
+rsa_testo_isi <- '
+level:1
+test_concz ~ d*RSAz
+ISI ~ f*RSAz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*RSAz
+ISI ~ c*RSAz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_testo_isi <- sem(model = rsa_testo_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_testo_isi, "icc")
+standardizedsolution(fitrsa_testo_isi)
+
+##PSQI
+##TB x testo x PSQI
+tb_testo_psqi <- '
+level:1
+test_concz ~ d*TBz
+PSQI ~ f*TBz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*TBz
+PSQI ~ c*TBz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_testo_psqi <- sem(model = tb_testo_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_testo_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_testo_psqi, "icc")
+standardizedsolution(fittb_testo_psqi)
+
+##EXH x testo x PSQI
+exh_testo_psqi <- '
+level:1
+test_concz ~ d*EXHz
+PSQI ~ f*EXHz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*EXHz
+PSQI ~ c*EXHz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_testo_psqi <- sem(model = exh_testo_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_testo_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_testo_psqi, "icc")
+standardizedsolution(fitexh_testo_psqi)
+
+##DEV x testo x PSQI
+dev_testo_psqi <- '
+level:1
+test_concz ~ d*DEVz
+PSQI ~ f*DEVz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*DEVz
+PSQI ~ c*DEVz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_testo_psqi <- sem(model = dev_testo_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_testo_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_testo_psqi, "icc")
+standardizedsolution(fitdev_testo_psqi)
+
+##RSA x testo x PSQI
+rsa_testo_psqi <- '
+level:1
+test_concz ~ d*RSAz
+PSQI ~ f*RSAz + e*test_concz
+de:= d*e
+totalw := de+f
+
+level:2
+test_concz ~ a*RSAz
+PSQI ~ c*RSAz + b*test_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_testo_psqi <- sem(model = rsa_testo_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_testo_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_testo_psqi, "icc")
+standardizedsolution(fitrsa_testo_psqi)
+
+
+
+# DHEA-S on
+## Depressive symptoms
+##TB x dheas x DS
+tb_dheas_ds <- '
+level:1
+dheas_flowz ~ d*TBz
+DS ~ f*TBz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*TBz
+DS ~ c*TBz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_dheas_ds <- sem(model = tb_dheas_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_dheas_ds, "icc")
+standardizedsolution(fittb_dheas_ds)
+
+##EXH x dheas x DS
+exh_dheas_ds <- '
+level:1
+dheas_flowz ~ d*EXHz
+DS ~ f*EXHz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*EXHz
+DS ~ c*EXHz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_dheas_ds <- sem(model = exh_dheas_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_dheas_ds, "icc")
+standardizedsolution(fitexh_dheas_ds)
+
+##DEV x dheas x DS
+dev_dheas_ds <- '
+level:1
+dheas_flowz ~ d*DEVz
+DS ~ f*DEVz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*DEVz
+DS ~ c*DEVz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_dheas_ds <- sem(model = dev_dheas_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_dheas_ds, "icc")
+standardizedsolution(fitdev_dheas_ds)
+
+##RSA x dheas x DS
+rsa_dheas_ds <- '
+level:1
+dheas_flowz ~ d*RSAz
+DS ~ f*RSAz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*RSAz
+DS ~ c*RSAz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_dheas_ds <- sem(model = rsa_dheas_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_dheas_ds, "icc")
+standardizedsolution(fitrsa_dheas_ds)
+
+##Physical Symptoms
+##TB x dheas x PS
+tb_dheas_ps <- '
+level:1
+dheas_flowz ~ d*TBz
+PS ~ f*TBz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*TBz
+PS ~ c*TBz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_dheas_ps <- sem(model = tb_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_dheas_ps, "icc")
+standardizedsolution(fittb_dheas_ps)
+
+##EXH x dheas x PS
+exh_dheas_ps <- '
+level:1
+dheas_flowz ~ d*EXHz
+PS ~ f*EXHz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*EXHz
+PS ~ c*EXHz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_dheas_ps <- sem(model = exh_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_dheas_ps, "icc")
+standardizedsolution(fitexh_dheas_ps)
+
+##DEV x dheas x PS
+dev_dheas_ps <- '
+level:1
+dheas_flowz ~ d*DEVz
+PS ~ f*DEVz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*DEVz
+PS ~ c*DEVz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_dheas_ps <- sem(model = dev_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_dheas_ps, "icc")
+standardizedsolution(fitdev_dheas_ps)
+
+##RSA x dheas x PS
+rsa_dheas_ps <- '
+level:1
+dheas_flowz ~ d*RSAz
+PS ~ f*RSAz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*RSAz
+PS ~ c*RSAz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_dheas_ps <- sem(model = rsa_dheas_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_dheas_ps, "icc")
+standardizedsolution(fitrsa_dheas_ps)
+
+##ISI
+##TB x dheas x ISI
+tb_dheas_isi <- '
+level:1
+dheas_flowz ~ d*TBz
+ISI ~ f*TBz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*TBz
+ISI ~ c*TBz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_dheas_isi <- sem(model = tb_dheas_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_dheas_isi, "icc")
+standardizedsolution(fittb_dheas_isi)
+
+##EXH x dheas x ISI
+exh_dheas_isi <- '
+level:1
+dheas_flowz ~ d*EXHz
+ISI ~ f*EXHz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*EXHz
+ISI ~ c*EXHz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_dheas_isi <- sem(model = exh_dheas_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_dheas_isi, "icc")
+standardizedsolution(fitexh_dheas_isi)
+
+##DEV x dheas x ISI
+dev_dheas_isi <- '
+level:1
+dheas_flowz ~ d*DEVz
+ISI ~ f*DEVz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*DEVz
+ISI ~ c*DEVz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_dheas_isi <- sem(model = dev_dheas_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_dheas_isi, "icc")
+standardizedsolution(fitdev_dheas_isi)
+
+##RSA x dheas x ISI
+rsa_dheas_isi <- '
+level:1
+dheas_flowz ~ d*RSAz
+ISI ~ f*RSAz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*RSAz
+ISI ~ c*RSAz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_dheas_isi <- sem(model = rsa_dheas_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_dheas_isi, "icc")
+standardizedsolution(fitrsa_dheas_isi)
+
+##PSQI
+##TB x dheas x PSQI
+tb_dheas_psqi <- '
+level:1
+dheas_flowz ~ d*TBz
+PSQI ~ f*TBz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*TBz
+PSQI ~ c*TBz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_dheas_psqi <- sem(model = tb_dheas_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_dheas_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_dheas_psqi, "icc")
+standardizedsolution(fittb_dheas_psqi)
+
+##EXH x dheas x PSQI
+exh_dheas_psqi <- '
+level:1
+dheas_flowz ~ d*EXHz
+PSQI ~ f*EXHz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*EXHz
+PSQI ~ c*EXHz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_dheas_psqi <- sem(model = exh_dheas_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_dheas_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_dheas_psqi, "icc")
+standardizedsolution(fitexh_dheas_psqi)
+
+##DEV x dheas x PSQI
+dev_dheas_psqi <- '
+level:1
+dheas_flowz ~ d*DEVz
+PSQI ~ f*DEVz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*DEVz
+PSQI ~ c*DEVz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_dheas_psqi <- sem(model = dev_dheas_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_dheas_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_dheas_psqi, "icc")
+standardizedsolution(fitdev_dheas_psqi)
+
+##RSA x dheas x PSQI
+rsa_dheas_psqi <- '
+level:1
+dheas_flowz ~ d*RSAz
+PSQI ~ f*RSAz + e*dheas_flowz
+de:= d*e
+totalw := de+f
+
+level:2
+dheas_flowz ~ a*RSAz
+PSQI ~ c*RSAz + b*dheas_flowz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_dheas_psqi <- sem(model = rsa_dheas_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_dheas_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_dheas_psqi, "icc")
+standardizedsolution(fitrsa_dheas_psqi)
+
+
+
+## C-reactive protein on
+## Depressive symptoms
+##TB x CRP x DS
+tb_crp_ds <- '
+level:1
+crp_concz ~ d*TBz
+DS ~ f*TBz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*TBz
+DS ~ c*TBz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_crp_ds <- sem(model = tb_crp_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_crp_ds, "icc")
+standardizedsolution(fittb_crp_ds)
+
+##EXH x CRP x DS
+exh_crp_ds <- '
+level:1
+crp_concz ~ d*EXHz
+DS ~ f*EXHz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*EXHz
+DS ~ c*EXHz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_crp_ds <- sem(model = exh_crp_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_crp_ds, "icc")
+standardizedsolution(fitexh_crp_ds)
+
+##DEV x CRP x DS
+dev_crp_ds <- '
+level:1
+crp_concz ~ d*DEVz
+DS ~ f*DEVz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*DEVz
+DS ~ c*DEVz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_crp_ds <- sem(model = dev_crp_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_crp_ds, "icc")
+standardizedsolution(fitdev_crp_ds)
+
+##RSA x CRP x DS
+rsa_crp_ds <- '
+level:1
+crp_concz ~ d*RSAz
+DS ~ f*RSAz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*RSAz
+DS ~ c*RSAz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_crp_ds <- sem(model = rsa_crp_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_crp_ds, "icc")
+standardizedsolution(fitrsa_crp_ds)
+
+##Physical Symptoms
+##TB x CRP x PS
+tb_crp_ps <- '
+level:1
+crp_concz ~ d*TBz
+PS ~ f*TBz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*TBz
+PS ~ c*TBz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_crp_ps <- sem(model = tb_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_crp_ps, "icc")
+standardizedsolution(fittb_crp_ps)
+
+##EXH x CRP x PS
+exh_crp_ps <- '
+level:1
+crp_concz ~ d*EXHz
+PS ~ f*EXHz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*EXHz
+PS ~ c*EXHz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_crp_ps <- sem(model = exh_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_crp_ps, "icc")
+standardizedsolution(fitexh_crp_ps)
+
+##DEV x CRP x PS
+dev_crp_ps <- '
+level:1
+crp_concz ~ d*DEVz
+PS ~ f*DEVz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*DEVz
+PS ~ c*DEVz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_crp_ps <- sem(model = dev_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_crp_ps, "icc")
+standardizedsolution(fitdev_crp_ps)
+
+##RSA x CRP x PS
+rsa_crp_ps <- '
+level:1
+crp_concz ~ d*RSAz
+PS ~ f*RSAz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*RSAz
+PS ~ c*RSAz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_crp_ps <- sem(model = rsa_crp_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_crp_ps, "icc")
+standardizedsolution(fitrsa_crp_ps)
+
+##ISI
+##TB x CRP x ISI
+tb_crp_isi <- '
+level:1
+crp_concz ~ d*TBz
+ISI ~ f*TBz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*TBz
+ISI ~ c*TBz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_crp_isi <- sem(model = tb_crp_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_crp_isi, "icc")
+standardizedsolution(fittb_crp_isi)
+
+##EXH x CRP x ISI
+exh_crp_isi <- '
+level:1
+crp_concz ~ d*EXHz
+ISI ~ f*EXHz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*EXHz
+ISI ~ c*EXHz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_crp_isi <- sem(model = exh_crp_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_crp_isi, "icc")
+standardizedsolution(fitexh_crp_isi)
+
+##DEV x CRP x ISI
+dev_crp_isi <- '
+level:1
+crp_concz ~ d*DEVz
+ISI ~ f*DEVz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*DEVz
+ISI ~ c*DEVz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_crp_isi <- sem(model = dev_crp_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_crp_isi, "icc")
+standardizedsolution(fitdev_crp_isi)
+
+##RSA x CRP x ISI
+rsa_crp_isi <- '
+level:1
+crp_concz ~ d*RSAz
+ISI ~ f*RSAz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*RSAz
+ISI ~ c*RSAz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_crp_isi <- sem(model = rsa_crp_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_crp_isi, "icc")
+standardizedsolution(fitrsa_crp_isi)
+
+##PSQI
+##TB x CRP x PSQI
+tb_crp_psqi <- '
+level:1
+crp_concz ~ d*TBz
+PSQI ~ f*TBz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*TBz
+PSQI ~ c*TBz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_crp_psqi <- sem(model = tb_crp_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_crp_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_crp_psqi, "icc")
+standardizedsolution(fittb_crp_psqi)
+
+##EXH x CRP x PSQI
+exh_crp_psqi <- '
+level:1
+crp_concz ~ d*EXHz
+PSQI ~ f*EXHz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*EXHz
+PSQI ~ c*EXHz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_crp_psqi <- sem(model = exh_crp_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_crp_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_crp_psqi, "icc")
+standardizedsolution(fitexh_crp_psqi)
+
+##DEV x CRP x PSQI
+dev_crp_psqi <- '
+level:1
+crp_concz ~ d*DEVz
+PSQI ~ f*DEVz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*DEVz
+PSQI ~ c*DEVz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_crp_psqi <- sem(model = dev_crp_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_crp_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_crp_psqi, "icc")
+standardizedsolution(fitdev_crp_psqi)
+
+##RSA x CRP x PSQI
+rsa_crp_psqi <- '
+level:1
+crp_concz ~ d*RSAz
+PSQI ~ f*RSAz + e*crp_concz
+de:= d*e
+totalw := de+f
+
+level:2
+crp_concz ~ a*RSAz
+PSQI ~ c*RSAz + b*crp_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_crp_psqi <- sem(model = rsa_crp_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_crp_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_crp_psqi, "icc")
+standardizedsolution(fitrsa_crp_psqi)
+
+
+
+
+##Cortisol
+##Depressive Symptoms
+##TB x Cortisol x DS
+tb_cort_ds <- '
+level:1
+cort_concz ~ d*TBz
+DS ~ f*TBz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*TBz
+DS ~ c*TBz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_cort_ds <- sem(model = tb_cort_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_cort_ds, "icc")
+standardizedsolution(fittb_cort_ds)
+
+##EXH x Cortisol x DS
+exh_cort_ds <- '
+level:1
+cort_concz ~ d*EXHz
+DS ~ f*EXHz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*EXHz
+DS ~ c*EXHz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_cort_ds <- sem(model = exh_cort_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_cort_ds, "icc")
+standardizedsolution(fitexh_cort_ds)
+
+##DEV x Cortisol x DS
+dev_cort_ds <- '
+level:1
+cort_concz ~ d*DEVz
+DS ~ f*DEVz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*DEVz
+DS ~ c*DEVz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_cort_ds <- sem(model = dev_cort_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_cort_ds, "icc")
+standardizedsolution(fitdev_cort_ds)
+
+##RSA x Cortisol x DS
+rsa_cort_ds <- '
+level:1
+cort_concz ~ d*RSAz
+DS ~ f*RSAz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*RSAz
+DS ~ c*RSAz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_cort_ds <- sem(model = rsa_cort_ds, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_ds, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_cort_ds, "icc")
+standardizedsolution(fitrsa_cort_ds)
+
+##Physical Symptoms
+##TB x Cortisol x PS
+tb_cort_ps <- '
+level:1
+cort_concz ~ d*TBz
+PS ~ f*TBz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*TBz
+PS ~ c*TBz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_cort_ps <- sem(model = tb_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_cort_ps, "icc")
+standardizedsolution(fittb_cort_ps)
+
+##EXH x Cortisol x PS
+exh_cort_ps <- '
+level:1
+cort_concz ~ d*EXHz
+PS ~ f*EXHz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*EXHz
+PS ~ c*EXHz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_cort_ps <- sem(model = exh_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_cort_ps, "icc")
+standardizedsolution(fitexh_cort_ps)
+
+##DEV x Cortisol x PS
+dev_cort_ps <- '
+level:1
+cort_concz ~ d*DEVz
+PS ~ f*DEVz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*DEVz
+PS ~ c*DEVz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_cort_ps <- sem(model = dev_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_cort_ps, "icc")
+standardizedsolution(fitdev_cort_ps)
+
+##RSA x Cortisol x PS
+rsa_cort_ps <- '
+level:1
+cort_concz ~ d*RSAz
+PS ~ f*RSAz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*RSAz
+PS ~ c*RSAz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_cort_ps <- sem(model = rsa_cort_ps, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_ps, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_cort_ps, "icc")
+standardizedsolution(fitrsa_cort_ps)
+
+##ISI
+##TB x Cortisol x ISI
+tb_cort_isi <- '
+level:1
+cort_concz ~ d*TBz
+ISI ~ f*TBz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*TBz
+ISI ~ c*TBz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_cort_isi <- sem(model = tb_cort_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_cort_isi, "icc")
+standardizedsolution(fittb_cort_isi)
+
+##EXH x Cortisol x ISI
+exh_cort_isi <- '
+level:1
+cort_concz ~ d*EXHz
+ISI ~ f*EXHz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*EXHz
+ISI ~ c*EXHz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_cort_isi <- sem(model = exh_cort_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_cort_isi, "icc")
+standardizedsolution(fitexh_cort_isi)
+
+##DEV x Cortisol x ISI
+dev_cort_isi <- '
+level:1
+cort_concz ~ d*DEVz
+ISI ~ f*DEVz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*DEVz
+ISI ~ c*DEVz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_cort_isi <- sem(model = dev_cort_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_cort_isi, "icc")
+standardizedsolution(fitdev_cort_isi)
+
+##RSA x Cortisol x ISI
+rsa_cort_isi <- '
+level:1
+cort_concz ~ d*RSAz
+ISI ~ f*RSAz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*RSAz
+ISI ~ c*RSAz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_cort_isi <- sem(model = rsa_cort_isi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_isi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_cort_isi, "icc")
+standardizedsolution(fitrsa_cort_isi)
+
+##PSQI
+##TB x Cortisol x PSQI
+tb_cort_psqi <- '
+level:1
+cort_concz ~ d*TBz
+PSQI ~ f*TBz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*TBz
+PSQI ~ c*TBz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fittb_cort_psqi <- sem(model = tb_cort_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fittb_cort_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fittb_cort_psqi, "icc")
+standardizedsolution(fittb_cort_psqi)
+
+##EXH x Cortisol x PSQI
+exh_cort_psqi <- '
+level:1
+cort_concz ~ d*EXHz
+PSQI ~ f*EXHz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*EXHz
+PSQI ~ c*EXHz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitexh_cort_psqi <- sem(model = exh_cort_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitexh_cort_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitexh_cort_psqi, "icc")
+standardizedsolution(fitexh_cort_psqi)
+
+##DEV x Cortisol x PSQI
+dev_cort_psqi <- '
+level:1
+cort_concz ~ d*DEVz
+PSQI ~ f*DEVz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*DEVz
+PSQI ~ c*DEVz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitdev_cort_psqi <- sem(model = dev_cort_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitdev_cort_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitdev_cort_psqi, "icc")
+standardizedsolution(fitdev_cort_psqi)
+
+##RSA x Cortisol x PSQI
+rsa_cort_psqi <- '
+level:1
+cort_concz ~ d*RSAz
+PSQI ~ f*RSAz + e*cort_concz
+de:= d*e
+totalw := de+f
+
+level:2
+cort_concz ~ a*RSAz
+PSQI ~ c*RSAz + b*cort_concz
+ab:= a*b
+totalbw := ab+c
+'
+fitrsa_cort_psqi <- sem(model = rsa_cort_psqi, data = datlx, cluster = "sample_id", estimator = "MLR")
+summary(fitrsa_cort_psqi, fit.measures=TRUE, standardized = TRUE, rsquare=T)
+lavInspect(fitrsa_cort_psqi, "icc")
+standardizedsolution(fitrsa_cort_psqi)
+```
