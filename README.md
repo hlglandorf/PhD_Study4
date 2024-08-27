@@ -5,7 +5,7 @@ For context, the pre-registration for the study can be found here (Glandorf et a
 
 The paper is currently in the editing stage and thus code may change/does not represent the final version. 
 
-The data is available upon request. 
+The data is available upon request. An example of what the data file (.csv) for the analyses stages looks like has been added to the repository. 
 
 The code is separated into several files:
 1. Data joining: This file joins the questionnaire data and biomarker data (from waves 1-3) into a single file
